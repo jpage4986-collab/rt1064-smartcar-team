@@ -436,8 +436,8 @@ track_mode1_result_t track_mode16_process(
         /* Recover a washed-out ordinary bend as soon as two fresh frames
          * contain a connected, measured near lane. Ring WAIT stays separate. */
         if (result.valid_rows >= TRACK_DRIVE_MIN_VALID_ROWS &&
-            track_mode16_path_confidence[A16_ROAD_TARGET_ROW] >= TRACK_DRIVE_MIN_TARGET_CONFIDENCE &&
-            track_mode16_path_confidence[A16_ROAD_ANCHOR_ROW] >= TRACK_DRIVE_MIN_ANCHOR_CONFIDENCE) {
+            track_mode16_path_confidence[TRACK_A16_LOOKAHEAD_ROW] >= TRACK_DRIVE_MIN_TARGET_CONFIDENCE &&
+            track_mode16_path_confidence[TRACK_A16_NEAR_ROW] >= TRACK_DRIVE_MIN_ANCHOR_CONFIDENCE) {
             if (++road_recovery_frames >= 2U) track_mode16_phase = A16_ROAD;
         } else {
             road_recovery_frames = 0;
@@ -467,11 +467,18 @@ track_mode1_result_t track_mode16_process(
     if (track_mode16_phase == A16_ROAD) {
         /* Select the near-field rows only after the island planner has used
          * the original full-depth observation for its state transitions. */
-        track_mode16_target_row = A16_ROAD_TARGET_ROW;
-        result.target_confidence = track_mode16_path_confidence[A16_ROAD_TARGET_ROW];
-        result.anchor_confidence = track_mode16_path_confidence[A16_ROAD_ANCHOR_ROW];
 #if TRACK_ALGORITHM == 16
-        for (int y = A16_ROAD_ANCHOR_ROW; y >= (int)A16_ROAD_TARGET_ROW; --y) {
+        const int target_row = TRACK_A16_LOOKAHEAD_ROW;
+        const int anchor_row = TRACK_A16_NEAR_ROW;
+#else
+        const int target_row = A16_ROAD_TARGET_ROW;
+        const int anchor_row = A16_ROAD_ANCHOR_ROW;
+#endif
+        track_mode16_target_row = target_row;
+        result.target_confidence = track_mode16_path_confidence[target_row];
+        result.anchor_confidence = track_mode16_path_confidence[anchor_row];
+#if TRACK_ALGORITHM == 16
+        for (int y = anchor_row; y >= target_row; --y) {
             if (!track_mode16_path_confidence[y]) continue;
             int left = track_mode16_path_x[y], right = left;
             while (left > 2 && a16_binary_image[y][left-1]) --left;
@@ -500,23 +507,23 @@ track_mode1_result_t track_mode16_process(
             if (curve < -5 && far < mid-4) bias = (curve+3)/3;
             if (bias > 2) bias=2;
             if (bias < -2) bias=-2;
-            for (int y=A16_ROAD_TARGET_ROW; bias && y<=A16_ROAD_ANCHOR_ROW; ++y) {
+            for (int y=target_row; bias && y<=anchor_row; ++y) {
                 if (!track_mode16_path_confidence[y]) continue;
                 int x=track_mode16_path_x[y];
-                int offset=bias*((int)A16_ROAD_ANCHOR_ROW-y)/
-                                ((int)A16_ROAD_ANCHOR_ROW-(int)A16_ROAD_TARGET_ROW);
+                int offset=bias*(anchor_row-y)/
+                                (anchor_row-target_row);
                 int guard=x+offset+(bias>0 ? 12 : -12);
                 if (guard>=2 && guard<=185 && a16_binary_image[y][guard] && a16_binary_image[y][x+offset]) {
                     track_mode16_path_x[y]=x+offset;
-                    if (y==(int)A16_ROAD_TARGET_ROW) track_mode16_inside_px=offset;
+                    if (y==target_row) track_mode16_inside_px=offset;
                 }
             }
         }
 #endif
         if (result.target_confidence)
-            result.target_x = track_mode16_path_x[A16_ROAD_TARGET_ROW];
+            result.target_x = track_mode16_path_x[target_row];
         if (result.anchor_confidence)
-            result.anchor_x = track_mode16_path_x[A16_ROAD_ANCHOR_ROW];
+            result.anchor_x = track_mode16_path_x[anchor_row];
     }
 #endif
     return result;

@@ -7,6 +7,13 @@
  * Encoder speed PID is optional; TRACK_SPEED_PID_ENABLED defaults to 0. */
 
 /* 1 = OtsuScan, 3 = ContinuityTrack, 8-15 = fused paths, 16 = 8-neighbor contour, 17 = ContinuityTrack + mode 16 ring. */
+/* A16 ordinary road, in the rectified 120-row view. */
+#define TRACK_A16_LOOKAHEAD_ROW 94
+#define TRACK_A16_NEAR_ROW 117
+#define TRACK_A16_NEAR_GAIN_PERCENT 8
+#if TRACK_A16_LOOKAHEAD_ROW < 73 || TRACK_A16_LOOKAHEAD_ROW >= TRACK_A16_NEAR_ROW || TRACK_A16_NEAR_ROW > 118 || TRACK_A16_NEAR_GAIN_PERCENT < 0 || TRACK_A16_NEAR_GAIN_PERCENT > 100
+#error "Invalid A16 road sampling rows or near correction"
+#endif
 #define TRACK_A16_SEARCH_PWM_PERCENT 17U
 #define TRACK_A16_SEARCH_TIME_MS 2000U
 #define TRACK_A16_CAMERA_HEIGHT_M 0.315f

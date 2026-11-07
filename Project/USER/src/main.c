@@ -624,6 +624,14 @@ static void track_control(const track_result_t *line)
         int32_t heading = (int32_t)line->target_x - (int32_t)line->anchor_x;
         error += track_mode16_phase == A16_ROAD ? heading / 2 : heading / 4;
     }
+    if (track_mode16_phase == A16_ROAD && track_mode16_target_row == TRACK_A16_LOOKAHEAD_ROW &&
+        !track_mode16_corner_active && !track_mode16_obstacle_side &&
+        line->anchor_confidence >= TRACK_DRIVE_MIN_ANCHOR_CONFIDENCE &&
+        line->target_confidence >= TRACK_DRIVE_MIN_TARGET_CONFIDENCE) {
+        int near_offset = line->anchor_x - (int)(TRACK_MODE1_WIDTH / 2U);
+        if ((near_offset > 2 && error > 2) || (near_offset < -2 && error < -2))
+            error += near_offset * TRACK_A16_NEAR_GAIN_PERCENT / 100;
+    }
     /* Ignore small pixel fluctuations; restore gain as path curvature grows. */
     if (error >= -2 && error <= 2) error = 0;
     if (line->anchor_confidence >= TRACK_DRIVE_MIN_ANCHOR_CONFIDENCE &&

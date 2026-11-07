@@ -48,6 +48,10 @@ python sim/replay.py --direction both --output reports/replay
 
 从 main 建分支，提交改动时附双向回放结果。用标签 `vehicle-5ad9d3f3` 查看上一版车载固件对应源码，用 `a16-before-module-split` 对照功能修改与文件拆分，用 `a16-b6072527` 找回 23 cm 机位的烧录版本。
 
+## 普通循迹的远近参数
+
+在 `Project/USER/inc/tune_config.h` 调整。参考图从上往下共 120 行，行号越小看得越远。当前主目标用第 94 行（`TRACK_A16_LOOKAHEAD_ROW`），近处锚点用第 117 行（`TRACK_A16_NEAR_ROW`）。两处测量可信、近处偏差与控制误差同向时，将近处横向偏差的 8% 加入转向误差（`TRACK_A16_NEAR_GAIN_PERCENT`）。按当前投影模型，中列这两行对应相机正下方往前约 39 cm 和 27 cm。
+
 ## 31.5 cm、俯视 30° 机位
 
 算法 16 的环岛拟合、入口像素门限和近场循迹共用一个 23 cm、俯视 15° 的参考视图。`a16_camera.c` 根据实际安装姿态将可见地面采样到该坐标系，LCD 的边线和目标也来自同一视图。参数在 `tune_config.h`。模型沿用约 75° 的水平视场角，实车镜头内参和畸变尚未标定。
