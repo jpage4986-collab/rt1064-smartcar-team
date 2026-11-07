@@ -214,7 +214,7 @@ volatile uint32_t track_target_x = TRACK_STEER_REFERENCE_X;
 volatile uint32_t track_target_confidence = 0U;
 volatile uint32_t track_servo_angle = TRACK_SERVO_CENTER_DEG;
 #if TRACK_ALGORITHM == 16
-static unsigned bend_hold_ms;
+static unsigned road_search_remaining_ms;
 #endif
 volatile uint32_t track_valid_rows = 0U;
 volatile uint32_t track_mode_number = TRACK_ALGORITHM;
@@ -468,7 +468,7 @@ static void wireless_poll(void)
             pwm_duty(CAMERA_TEST_MOTOR2_PWM, 0U);
             track_motor_duty = 0U;
 #if TRACK_ALGORITHM == 16
-            bend_hold_ms = 0;
+            road_search_remaining_ms = 0;
             exit_straight_frames_needed = 0U;
 #endif
             wireless_reply("OK STOP\r\n");
@@ -481,7 +481,7 @@ static void wireless_poll(void)
             pwm_duty(CAMERA_TEST_MOTOR2_PWM, 0U);
             track_motor_duty = 0U;
 #if TRACK_ALGORITHM == 16
-            bend_hold_ms = 0;
+            road_search_remaining_ms = 0;
             exit_straight_frames_needed = 0U;
 #endif
 #if TRACK_ALGORITHM == 8 || TRACK_ALGORITHM == 9 || TRACK_ALGORITHM == 10 || TRACK_ALGORITHM == 11 || TRACK_ALGORITHM == 12 || (TRACK_ALGORITHM == 13 || TRACK_ALGORITHM == 14 || TRACK_ALGORITHM == 15)
@@ -526,6 +526,14 @@ static void track_outputs_init(void)
     track_speed_pid_reset();
 }
 
+static void track_drive_forward(uint32_t duty1, uint32_t duty2)
+{
+    gpio_set(CAMERA_TEST_MOTOR1_DIR, TRACK_MOTOR1_FORWARD_LEVEL ? GPIO_HIGH : GPIO_LOW);
+    gpio_set(CAMERA_TEST_MOTOR2_DIR, TRACK_MOTOR2_FORWARD_LEVEL ? GPIO_HIGH : GPIO_LOW);
+    pwm_duty(CAMERA_TEST_MOTOR1_PWM, duty1 > PWM_DUTY_MAX ? PWM_DUTY_MAX : duty1);
+    pwm_duty(CAMERA_TEST_MOTOR2_PWM, duty2 > PWM_DUTY_MAX ? PWM_DUTY_MAX : duty2);
+}
+
 static void track_stop_outputs(int center_servo)
 {
     pwm_duty(CAMERA_TEST_MOTOR1_PWM, 0U);
@@ -552,7 +560,7 @@ static void track_stop_outputs(int center_servo)
 static void track_stop(void)
 {
 #if TRACK_ALGORITHM == 16
-    bend_hold_ms = 0;
+    road_search_remaining_ms = 0;
 #endif
     track_stop_outputs(1);
 }
@@ -738,10 +746,27 @@ static void track_control(const track_result_t *line)
         track_target_confidence = line->target_confidence;
         track_valid_rows = line->valid_rows;
 #if TRACK_ALGORITHM == 16
-        if (track_arm_request == 1U && bend_hold_ms > a16_frame_ms &&
-            (track_mode16_phase == A16_ROAD || track_mode16_phase == A16_WAIT)) {
-            bend_hold_ms -= a16_frame_ms;
-            track_stop_outputs(0);
+        if (track_arm_request == 1U && a16_frame_ms < TRACK_CAMERA_LOST_TIMEOUT_MS) {
+            /* Enter only after a driven frame. Zero duty keeps startup and
+             * an expired search stationary until a usable path returns. */
+            if (road_search_remaining_ms == 0U && track_motor_duty > 0U) {
+                road_search_remaining_ms = TRACK_A16_SEARCH_TIME_MS;
+            } else if (road_search_remaining_ms > a16_frame_ms) {
+                road_search_remaining_ms -= a16_frame_ms;
+            } else {
+                road_search_remaining_ms = 0U;
+            }
+            if (road_search_remaining_ms) {
+                uint32_t duty = PWM_DUTY_MAX * TRACK_A16_SEARCH_PWM_PERCENT / 100U;
+                if (duty > TRACK_MOTOR_DUTY_LIMIT) duty = TRACK_MOTOR_DUTY_LIMIT;
+                if (duty > track_motor_duty + TRACK_MOTOR_RAMP_STEP)
+                    duty = track_motor_duty + TRACK_MOTOR_RAMP_STEP;
+                track_motor_duty = duty;
+                track_drive_forward(duty * TRACK_MOTOR1_OUTPUT_SCALE_PERCENT / 100U,
+                                    duty * TRACK_MOTOR2_OUTPUT_SCALE_PERCENT / 100U);
+            } else {
+                track_stop_outputs(0);
+            }
             return;
         }
 #endif
@@ -818,9 +843,7 @@ static void track_control(const track_result_t *line)
     }
 
 #if TRACK_ALGORITHM == 16
-    int deviation = angle - (int32_t)TRACK_SERVO_CENTER_DEG;
-    bend_hold_ms = track_mode16_phase == A16_ROAD && !track_mode16_obstacle_side &&
-                   (deviation <= -6 || deviation >= 6) ? 200U : 0U;
+    road_search_remaining_ms = 0U;
 #endif
     /* Open-loop PWM: one shared ramped command, then an independent per-wheel
      * scale/trim. The configurable global cap may use the full PWM range. */
@@ -916,10 +939,7 @@ static void track_control(const track_result_t *line)
     duty1 = (uint32_t)corrected_duty1;
     duty2 = (uint32_t)corrected_duty2;
 
-    gpio_set(CAMERA_TEST_MOTOR1_DIR, TRACK_MOTOR1_FORWARD_LEVEL ? GPIO_HIGH : GPIO_LOW);
-    gpio_set(CAMERA_TEST_MOTOR2_DIR, TRACK_MOTOR2_FORWARD_LEVEL ? GPIO_HIGH : GPIO_LOW);
-    pwm_duty(CAMERA_TEST_MOTOR1_PWM, duty1);
-    pwm_duty(CAMERA_TEST_MOTOR2_PWM, duty2);
+    track_drive_forward(duty1, duty2);
 }
 
 void main(void)
@@ -973,7 +993,7 @@ void main(void)
         {
             uint32_t timeout_ms = TRACK_CAMERA_LOST_TIMEOUT_MS;
 #if TRACK_ALGORITHM == 16
-            if (bend_hold_ms && bend_hold_ms < timeout_ms) timeout_ms = bend_hold_ms;
+            if (road_search_remaining_ms && road_search_remaining_ms < timeout_ms) timeout_ms = road_search_remaining_ms;
 #endif
             if ((uint32_t)(DWT->CYCCNT - last_frame_cycle) >=
                 (SystemCoreClock / 1000U) * timeout_ms)

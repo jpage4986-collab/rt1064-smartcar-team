@@ -7,6 +7,8 @@
  * Encoder speed PID is optional; TRACK_SPEED_PID_ENABLED defaults to 0. */
 
 /* 1 = OtsuScan, 3 = ContinuityTrack, 8-15 = fused paths, 16 = 8-neighbor contour, 17 = ContinuityTrack + mode 16 ring. */
+#define TRACK_A16_SEARCH_PWM_PERCENT 17U
+#define TRACK_A16_SEARCH_TIME_MS 2000U
 #define TRACK_A16_CAMERA_HEIGHT_M 0.315f
 #define TRACK_A16_CAMERA_PITCH_DEG 30.0f
 #define TRACK_ALGORITHM 16u
