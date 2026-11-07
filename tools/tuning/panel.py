@@ -30,6 +30,7 @@ def group(title, spec):
 group("视觉与前视", """
 MODE16_GRAY_THRESHOLD 基础灰度阈值 灰阶 1 254 1
 A16_CONTRAST_GAIN_PERCENT 二值化对比度 % 100 200 1
+A16_ENTRY_CONFIRM_FRAMES 环岛入口确认帧数 帧 2 6 1
 A16_LOOKAHEAD_ROW 前视目标行 行 73 115 1
 A16_NEAR_ROW 近处锚点行 行 74 118 1
 A16_NEAR_GAIN_PERCENT 近处偏差补偿 % 0 100 1

@@ -60,7 +60,9 @@ python sim/replay.py --direction both --output reports/replay
 
 ## 普通循迹的远近参数
 
-在 `Project/USER/inc/tune_config.h` 调整。参考图从上往下共 120 行，行号越小看得越远。当前主目标用第 94 行（`TRACK_A16_LOOKAHEAD_ROW`），近处锚点用第 117 行（`TRACK_A16_NEAR_ROW`）。两处测量可信、近处偏差与控制误差同向时，将近处横向偏差的 8% 加入转向误差（`TRACK_A16_NEAR_GAIN_PERCENT`）。按当前投影模型，中列这两行对应相机正下方往前约 39 cm 和 27 cm。
+在 `Project/USER/inc/tune_config.h` 调整。参考图从上往下共 120 行，行号越小看得越远。当前主目标用第 94 行（`TRACK_A16_LOOKAHEAD_ROW`），近处锚点用第 118 行（`TRACK_A16_NEAR_ROW`）。两处测量可信、近处偏差与控制误差同向时，将近处横向偏差的 6% 加入转向误差（`TRACK_A16_NEAR_GAIN_PERCENT`）。按当前投影模型，中列这两行对应相机正下方往前约 39 cm 和 27 cm。
+
+面板「视觉与前视」中的「环岛入口确认帧数」控制连续有效岛缘观测次数，默认 2 帧，可在 2–6 帧间调整。中断会重新计数；达到帧数后仍需满足入口位置条件。普通循迹逐帧响应，入弯过早可适当增大普通路前视行号。
 
 ## 31.5 cm、俯视 30° 机位
 

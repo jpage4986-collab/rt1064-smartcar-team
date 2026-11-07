@@ -4,6 +4,11 @@
 
 static uint16_t island_queue[TRACK_MODE1_HEIGHT * TRACK_MODE1_WIDTH];
 static int16_t island_left[120], island_right[120];
+#if TRACK_ALGORITHM == 16
+#define ENTRY_CONFIRM_FRAMES TRACK_A16_ENTRY_CONFIRM_FRAMES
+#else
+#define ENTRY_CONFIRM_FRAMES 3U
+#endif
 static uint8_t island_votes, merge_votes;
 #if TRACK_ALGORITHM == 16
 static uint8_t approach_curve_frames;
@@ -378,7 +383,7 @@ static int observe_island(void)
 #if TRACK_ALGORITHM == 16
         /* Recheck direction immediately before committing, once turn-in has
          * brought the camera back in line with the approach. */
-        if (track_mode16_phase == A16_PREP && island_votes >= 2 &&
+        if (track_mode16_phase == A16_PREP && island_votes >= ENTRY_CONFIRM_FRAMES - 1U &&
             l > 2 && r < 185 && b <= 75) {
             int center = (l+r)/2;
             int delta = center - approach_reference_x(b);
@@ -637,7 +642,8 @@ void a16_plan_island(track_mode1_result_t *out)
     }
     if (track_mode16_phase==A16_PREP) {
         if (!observed) {island_votes=0;track_mode16_phase=A16_ROAD;return;}
-        if (++island_votes<3 || track_mode16_island_bottom<30) return;
+        if (island_votes < ENTRY_CONFIRM_FRAMES) ++island_votes;
+        if (island_votes < ENTRY_CONFIRM_FRAMES || track_mode16_island_bottom < 30) return;
         track_mode16_phase=A16_ENTRY;
 #if TRACK_ALGORITHM == 16
         committed_now = 1;

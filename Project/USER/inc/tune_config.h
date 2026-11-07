@@ -9,14 +9,18 @@
 /* 1 = OtsuScan, 3 = ContinuityTrack, 8-15 = fused paths, 16 = 8-neighbor contour, 17 = ContinuityTrack + mode 16 ring. */
 /* A16 ordinary road, in the rectified 120-row view. */
 #define TRACK_A16_LOOKAHEAD_ROW 94
-#define TRACK_A16_NEAR_ROW 117
-#define TRACK_A16_NEAR_GAIN_PERCENT 8
+#define TRACK_A16_ENTRY_CONFIRM_FRAMES 2U
+#if TRACK_A16_ENTRY_CONFIRM_FRAMES < 2 || TRACK_A16_ENTRY_CONFIRM_FRAMES > 6
+#error "A16 entry confirmation must use 2..6 frames"
+#endif
+#define TRACK_A16_NEAR_ROW 118
+#define TRACK_A16_NEAR_GAIN_PERCENT 6
 #if TRACK_A16_LOOKAHEAD_ROW < 73 || TRACK_A16_LOOKAHEAD_ROW >= TRACK_A16_NEAR_ROW || TRACK_A16_NEAR_ROW > 118 || TRACK_A16_NEAR_GAIN_PERCENT < 0 || TRACK_A16_NEAR_GAIN_PERCENT > 100
 #error "Invalid A16 road sampling rows or near correction"
 #endif
 /* Extra gray contrast around the midpoint for dim or highlight-clipped scenes. */
-#define TRACK_MODE16_GRAY_THRESHOLD 232U
-#define TRACK_A16_CONTRAST_GAIN_PERCENT 110U
+#define TRACK_MODE16_GRAY_THRESHOLD 234U
+#define TRACK_A16_CONTRAST_GAIN_PERCENT 100U
 #if TRACK_A16_CONTRAST_GAIN_PERCENT < 100 || TRACK_A16_CONTRAST_GAIN_PERCENT > 200
 #error "A16 contrast gain must be 100..200 percent"
 #endif
@@ -34,9 +38,9 @@
 #define TRACK_STEER_REFERENCE_X 88u
 #define TRACK_A3_MAX_STEER_DELTA_DEG 12u
 #define TRACK_A16_MAX_STEER_DELTA_DEG 15u
-#define TRACK_A16_BEND_STEP_DEG 6
+#define TRACK_A16_BEND_STEP_DEG 5
 #define TRACK_A16_SUSTAINED_BEND_STEP_DEG 8
-#define TRACK_A16_ROAD_RETURN_STEP_DEG 10
+#define TRACK_A16_ROAD_RETURN_STEP_DEG 19
 
 /* Wheel drive: open-loop PWM; the requested output uses the full 0-100% hardware range. */
 #define TRACK_MOTOR_PWM_HZ 16999u
@@ -44,7 +48,7 @@
 #define TRACK_A17_ROAD_SLOWDOWN_PERCENT 0u
 #define TRACK_WHEEL_PWM_MAX_PERCENT 27u
 #define TRACK_CURVE_SLOWDOWN_PERCENT 40u
-#define TRACK_MOTOR_MIN_MOVING_PERCENT 17u
+#define TRACK_MOTOR_MIN_MOVING_PERCENT 20u
 #define TRACK_MOTOR1_OUTPUT_SCALE_PERCENT 100u
 #define TRACK_MOTOR2_OUTPUT_SCALE_PERCENT 88u
 #define TRACK_MOTOR_RAMP_STEP_PERCENT_PER_FRAME 5u
@@ -67,7 +71,7 @@
 #define TRACK_SPEED_PID_OUTMAX 5000u
 
 /* Algorithm 1: OtsuScan. */
-#define TRACK_OTSUSCAN_SCAN_TOP_ROW 48u
+#define TRACK_OTSUSCAN_SCAN_TOP_ROW 47u
 #define TRACK_OTSUSCAN_ANCHOR_ROW 105u
 #define TRACK_OTSUSCAN_TARGET_ROW 72u
 #define TRACK_OTSUSCAN_MIN_RUN_PIXELS 3u
