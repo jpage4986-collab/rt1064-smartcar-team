@@ -1,5 +1,8 @@
 """DAP update using the same BOOT2 application layout as wireless updates."""
 import argparse
+from contextlib import ExitStack
+import subprocess
+import tempfile
 from datetime import datetime
 import hashlib
 import io
@@ -35,6 +38,7 @@ def main():
     p.add_argument('--loader', type=Path, required=True)
     p.add_argument('--output-dir', type=Path, required=True)
     p.add_argument('--expect-algorithm', type=int, choices=(1, 3, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17))
+    p.add_argument('--flash-script', type=Path, help='PowerShell HEX flasher for the selected RT1064 board')
     args = p.parse_args()
     started = time.monotonic()
     timings = {}
@@ -55,13 +59,22 @@ def main():
                    'track_target_x', 'track_target_confidence', 'track_valid_rows') if n in symbols)
     backup_dir = args.output_dir / ('pre-wired-' + datetime.now().strftime('%Y%m%d-%H%M%S-%f'))
     backup_dir.mkdir(parents=True, exist_ok=False)
-    session = ConnectHelper.session_with_chosen_probe(
-        target_override='mimxrt1064', connect_mode='halt', frequency=800000)
-    if session is None:
-        raise RuntimeError('Connect CMSIS-DAP for wired flashing.')
-    with session:
+    def connect():
+        session = ConnectHelper.session_with_chosen_probe(
+            target_override='mimxrt1064', connect_mode='under-reset', frequency=800000,
+            options={'resume_on_disconnect': False})
+        if session is None:
+            raise RuntimeError('Connect CMSIS-DAP for wired flashing.')
+        session.open()
+        return session
+
+    with ExitStack() as cleanup:
+        session = connect()
+        cleanup.callback(session.close)
         target = session.target
         target.halt()
+        if (target.read32(0xE000ED00) >> 4) & 0xFFF != 0xC27:
+            raise RuntimeError('Target is not Cortex-M7')
         try:
             print('STAGE 备份', flush=True)
             stage_started = time.monotonic()
@@ -102,7 +115,25 @@ def main():
             print('PROGRESS 45 100', flush=True)
             print('STAGE 写入', flush=True)
             stage_started = time.monotonic()
-            FileProgrammer(session, chip_erase='sector').program(stream, file_format='hex')
+            if args.flash_script:
+                flasher = args.flash_script.resolve(strict=True)
+                target = None
+                session.close()
+                with tempfile.TemporaryDirectory() as temp:
+                    folder = Path(temp)
+                    hex_path = folder / 'boot2-update.hex'
+                    hex_path.write_text(stream.getvalue(), encoding='ascii')
+                    (folder / 'pyocd.yaml').write_text(
+                        'connect_mode: under-reset\nfrequency: 800000\nchip_erase: sector\n'
+                        'resume_on_disconnect: false\n', encoding='ascii')
+                    subprocess.run(['pwsh', '-NoProfile', '-File', str(flasher), '-Image', str(hex_path)],
+                                   cwd=folder, check=True)
+                session = connect()
+                cleanup.callback(session.close)
+                target = session.target
+                target.halt()
+            else:
+                FileProgrammer(session, chip_erase='sector').program(stream, file_format='hex')
             timings['写入'] = round(time.monotonic()-stage_started, 3)
             print(f"TIMING 写入 {timings['写入']:.3f}", flush=True)
             print('STAGE 校验', flush=True)
@@ -146,13 +177,15 @@ def main():
             timings['启动检查'] = round(time.monotonic()-stage_started, 3)
             print(f"TIMING 启动检查 {timings['启动检查']:.3f}", flush=True)
             report = dict(timings=timings, elf=str(args.elf.resolve()), backups=backups, first=first, second=second,
+                          elf_sha256=hashlib.sha256(args.elf.read_bytes()).hexdigest(),
                           bytes=len(image), crc32=f'{zlib.crc32(image):08x}',
                           elapsed_seconds=round(time.monotonic()-started, 1))
             (args.output_dir / 'latest-wired-update.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
             print('WIRED_UPDATE_OK ' + json.dumps(report), flush=True)
             print('PROGRESS 100 100', flush=True)
         finally:
-            target.resume()
+            if target is not None:
+                target.resume()
 
 
 if __name__ == '__main__':

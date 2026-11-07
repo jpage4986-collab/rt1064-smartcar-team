@@ -70,7 +70,7 @@ include(${ProjDirPath}/flags.cmake)
 
 include(${ProjDirPath}/config.cmake)
 
-file(GLOB SRCS
+file(GLOB SRCS CONFIGURE_DEPENDS
     "${ProjDirPath}/../USER/src/*.c"
 )
 if(SU7_WIRELESS_LOADER)
@@ -87,6 +87,10 @@ set_source_files_properties(
     "${ProjDirPath}/../USER/src/track_ring14.c"
     "${ProjDirPath}/../USER/src/track_ring15.c"
     "${ProjDirPath}/../USER/src/track_mode16.c"
+    "${ProjDirPath}/../USER/src/a16_roundabout.c"
+    "${ProjDirPath}/../USER/src/a16_obstacle.c"
+    "${ProjDirPath}/../USER/src/a16_finish.c"
+
     PROPERTIES COMPILE_OPTIONS "-O2")
 set_property(TARGET ${MCUX_SDK_PROJECT_NAME} APPEND PROPERTY LINK_DEPENDS
     "${RT1064_LINKER_SCRIPT}")
