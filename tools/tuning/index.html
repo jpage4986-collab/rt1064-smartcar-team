@@ -1,11 +1,11 @@
 <!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>RT1064 · 智能车调参</title><link rel="stylesheet" href="/style.css">
-<header><div class="brand"><i></i> RT1064 <span>/ 智能车调参</span></div><small>算法 16</small></header>
+<header><div class="brand"><i></i> RT1064 <span>/ 智能车调参</span></div><small id="mode"></small></header>
 <main><section class="top"><div><h1>车载参数工作台</h1><p id="msg" role="status">正在读取工程配置…</p></div><div class="actions"><button id="save">保存待烧录参数</button><button id="deploy" class="primary">应用并烧录 ↗</button></div></section>
 <div class="layout"><div class="left"><section class="card"><div class="heading"><h2>车载画面</h2><label class="upload">导入实拍帧<input id="file" type="file" accept=".gray,.raw,image/*"></label></div>
-<div class="frames"><figure><canvas id="raw" width="188" height="120"></canvas><figcaption>相机原始灰度</figcaption></figure><figure><canvas id="bin" width="188" height="120"></canvas><figcaption>校正后二值预览 <b id="threshold"></b></figcaption></figure></div>
+<div class="frames"><figure><canvas id="raw" width="188" height="120"></canvas><figcaption>相机原始灰度</figcaption></figure><figure><canvas id="bin" width="188" height="120"></canvas><figcaption>二值预览 <b id="threshold"></b></figcaption></figure></div>
 <p id="empty"></p><div class="scrub"><span id="frameName">历史车载录像</span><input type="range" id="frame" min="1" max="1" value="1"><output id="frameNo"></output></div>
 <div class="legend"><span class="far">前视目标</span><span class="near">近处锚点</span><span>仅预览分割与采样位置</span></div></section>
-<section class="card"><div class="heading"><h2>输出估算</h2><small>开环稳态</small></div><div id="metrics"></div><div class="scrub"><label for="err">弯中控制误差</label><input type="range" id="err" min="-80" max="80" value="30"><output id="response"></output></div><p class="note">舵角估算采用明显弯道增益和限位，表示最终目标角。按当前舵机限位、减速比例和电机倍率估算。实际输出还受路径、爬升和状态机限制。</p></section>
+<section class="card"><div class="heading"><h2>输出估算</h2><small>开环稳态</small></div><div id="metrics"></div><div class="scrub"><label for="err">弯中控制误差</label><input type="range" id="err" min="-80" max="80" value="30"><output id="response"></output></div><p class="note">舵角估算采用所选算法的普通路增益和限位，表示最终目标角。按当前舵机限位、减速比例和电机倍率估算。实际输出还受路径、爬升和状态机限制。</p></section>
 <section class="card summary"><div class="heading"><h2>待应用更改</h2><button id="reset" class="link">还原工程值</button></div><div id="changes"></div><a id="log" href="/flash.log" target="_blank" hidden>查看本次构建与烧录日志 ↗</a></section></div>
 <section class="card params"><div class="heading"><h2>车辆参数</h2><small id="count"></small></div><div id="groups"></div></section></div></main>
 <script src="/panel.js"></script></html>

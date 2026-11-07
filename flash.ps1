@@ -13,5 +13,8 @@ if (Test-Path -LiteralPath "$bin/python.exe") {
 & $probe list
 if ($LASTEXITCODE -ne 0) { throw 'Probe enumeration failed' }
 $project = Join-Path $PSScriptRoot 'Project'
-& $python "$project/tools/wired-update.py" --elf "$project/GCC/wireless-app/tutorial.elf" --loader "$project/GCC/wireless-loader/tutorial.elf" --output-dir "$PSScriptRoot/reports/flash" --expect-algorithm 16 --flash-script $flasher
+$header = Get-Content -Raw -LiteralPath "$project/USER/inc/tune_config.h"
+if ($header -notmatch '(?m)^#define\s+TRACK_ALGORITHM\s+(\d+)[uU]?\s*$') { throw 'Cannot read selected algorithm' }
+$expectedAlgorithm = [int]$Matches[1]
+& $python "$project/tools/wired-update.py" --elf "$project/GCC/wireless-app/tutorial.elf" --loader "$project/GCC/wireless-loader/tutorial.elf" --output-dir "$PSScriptRoot/reports/flash" --expect-algorithm $expectedAlgorithm --flash-script $flasher
 if ($LASTEXITCODE -ne 0) { throw 'Firmware update or readback failed' }

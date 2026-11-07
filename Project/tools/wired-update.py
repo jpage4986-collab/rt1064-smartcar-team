@@ -37,7 +37,7 @@ def main():
     p.add_argument('--elf', type=Path, required=True)
     p.add_argument('--loader', type=Path, required=True)
     p.add_argument('--output-dir', type=Path, required=True)
-    p.add_argument('--expect-algorithm', type=int, choices=(1, 3, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17))
+    p.add_argument('--expect-algorithm', type=int, choices=(1, 3, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18))
     p.add_argument('--flash-script', type=Path, help='PowerShell HEX flasher for the selected RT1064 board')
     args = p.parse_args()
     started = time.monotonic()

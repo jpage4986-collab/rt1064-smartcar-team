@@ -2,7 +2,7 @@
 #include <string.h>
 #include <math.h>
 
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
 static int obstacle_vote;
 static unsigned obstacle_hold_ms;
 

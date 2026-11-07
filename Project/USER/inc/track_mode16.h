@@ -11,7 +11,7 @@
 enum { A16_ROAD, A16_PREP, A16_ENTRY, A16_ARC, A16_MERGE, A16_WAIT };
 extern int track_mode16_curve_command;
 extern int track_mode16_corner_active;
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
 extern int track_mode16_obstacle_side;
 extern int track_mode16_inside_px;
 extern uint32_t a16_frame_ms;
@@ -24,7 +24,7 @@ extern volatile uint32_t track_mode16_phase;
 extern volatile int32_t track_mode16_island_side;
 extern volatile int32_t track_mode16_island_bottom;
 extern volatile uint32_t track_mode16_target_row;
-#if TRACK_ALGORITHM == 16 || TRACK_ALGORITHM == 17
+#if TRACK_HAS_A16_ELEMENTS || TRACK_ALGORITHM == 17
 int track_mode16_corner(track_mode1_result_t *road, int weak_road);
 #endif
 void track_mode16_set_frame_dt(uint32_t dt_ms);

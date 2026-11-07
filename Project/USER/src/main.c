@@ -39,7 +39,7 @@
 #define track_ring13_phase track_fsm_state
 #elif TRACK_ALGORITHM == 15
 #include "track_ring15.h"
-#elif TRACK_ALGORITHM == 16 || TRACK_ALGORITHM == 17
+#elif TRACK_HAS_A16_ELEMENTS || TRACK_ALGORITHM == 17
 #include "track_mode16.h"
 #endif
 
@@ -129,7 +129,35 @@ typedef track_mode4_result_t track_result_t;
 #define TRACK_MODE_PATH_X    track_mode4_path_x
 #define TRACK_MODE_PATH_CONF track_mode4_path_confidence
 #define TRACK_MODE_BINARY_PREVIEW track_mode4_binary_preview
-#elif TRACK_ALGORITHM == 16
+#elif TRACK_ALGORITHM == 18
+#include "track_mode4.h"
+#include "a16_internal.h"
+typedef track_mode1_result_t track_result_t;
+static int track18_special;
+static void track18_reset(void)
+{
+    track18_special = 0;
+    track_mode4_reset();
+    track_mode16_reset();
+}
+
+static track_result_t track18_process(const uint8_t image[][TRACK_MODE4_WIDTH])
+{
+    track_result_t element = track_mode16_process(image);
+    track18_special = track_mode16_phase == A16_ENTRY || track_mode16_phase == A16_ARC ||
+                      track_mode16_phase == A16_MERGE || track_mode16_obstacle_side ||
+                      a16_departure_mark_ms;
+    if (track18_special) return element;
+    track_mode4_result_t road = track_mode4_process(image);
+    track_mode16_target_row = TRACK_CONT_TARGET_ROW;
+    return (track_result_t){road.anchor_x, road.target_x, road.anchor_confidence,
+                            road.target_confidence, road.valid_rows, road.global_threshold};
+}
+#define TRACK_MODE_RESET track18_reset
+#define TRACK_MODE_PROCESS track18_process
+#define TRACK_MODE_PATH_X (track18_special ? track_mode16_path_x : track_mode4_path_x)
+#define TRACK_MODE_PATH_CONF (track18_special ? track_mode16_path_confidence : track_mode4_path_confidence)
+#elif TRACK_HAS_A16_ELEMENTS
 typedef track_mode1_result_t track_result_t;
 #define TRACK_MODE_RESET track_mode16_reset
 #define TRACK_MODE_PROCESS track_mode16_process
@@ -207,13 +235,13 @@ volatile uint32_t camera_test_pixel_60_94 = 0U;
 volatile uint32_t track_arm_request = 1U;
 volatile uint32_t track_motor_duty = 0U;
 static uint32_t track_curve_scale_x100 = 10000U;
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
 static uint8_t exit_straight_frames_needed;
 #endif
 volatile uint32_t track_target_x = TRACK_STEER_REFERENCE_X;
 volatile uint32_t track_target_confidence = 0U;
 volatile uint32_t track_servo_angle = TRACK_SERVO_CENTER_DEG;
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
 static unsigned road_search_remaining_ms;
 #endif
 volatile uint32_t track_valid_rows = 0U;
@@ -450,7 +478,7 @@ static void wireless_poll(void)
         }
         else if (strcmp(wireless_command, "ARM") == 0)
         {
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
             if (!track_arm_request) track16_new_lap();
 #endif
             track_arm_request = 1U;
@@ -467,7 +495,7 @@ static void wireless_poll(void)
             pwm_duty(CAMERA_TEST_MOTOR1_PWM, 0U);
             pwm_duty(CAMERA_TEST_MOTOR2_PWM, 0U);
             track_motor_duty = 0U;
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
             road_search_remaining_ms = 0;
             exit_straight_frames_needed = 0U;
 #endif
@@ -480,7 +508,7 @@ static void wireless_poll(void)
             pwm_duty(CAMERA_TEST_MOTOR1_PWM, 0U);
             pwm_duty(CAMERA_TEST_MOTOR2_PWM, 0U);
             track_motor_duty = 0U;
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
             road_search_remaining_ms = 0;
             exit_straight_frames_needed = 0U;
 #endif
@@ -539,11 +567,11 @@ static void track_stop_outputs(int center_servo)
     pwm_duty(CAMERA_TEST_MOTOR1_PWM, 0U);
     pwm_duty(CAMERA_TEST_MOTOR2_PWM, 0U);
     track_motor_duty = 0U;
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
     exit_straight_frames_needed = 0U;
 #endif
     track_curve_scale_x100 = 10000U;
-#if TRACK_ALGORITHM == 13 || TRACK_ALGORITHM == 16 || TRACK_ALGORITHM == 17
+#if TRACK_ALGORITHM == 13 || TRACK_HAS_A16_ELEMENTS || TRACK_ALGORITHM == 17
 #if TRACK_ALGORITHM == 17
     if (track17_uses_ring())
 #endif
@@ -559,13 +587,13 @@ static void track_stop_outputs(int center_servo)
 
 static void track_stop(void)
 {
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
     road_search_remaining_ms = 0;
 #endif
     track_stop_outputs(1);
 }
 
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
 /* On an S-bend the linkage passes neutral while the next bend is in view.
  * Accept straight road only when both halves of the visible path agree. */
 static int track16_road_is_straight(void)
@@ -601,7 +629,7 @@ static uint32_t track16_exit_scale(uint32_t requested, int turn_amount)
 
 static void track_control(const track_result_t *line)
 {
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
     if (track16_lap == A16_LAP_FINISHED) {
         track_stop();
         return;
@@ -614,7 +642,12 @@ static void track_control(const track_result_t *line)
 #else
     int32_t error = (int32_t)line->target_x - (int32_t)TRACK_STEER_REFERENCE_X;
     int32_t steer_gain = (int32_t)TRACK_STEER_GAIN_CENTIDEG_PER_PIXEL;
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
+    int correction = 0;
+    int bend_support = 0;
+#if TRACK_ALGORITHM == 18
+    if (track18_special) {
+#endif
     /* In ROAD, steer toward the optical axis of the centered camera.
      * Island states retain their calibrated branch-entry reference. */
     if (track_mode16_phase == A16_ROAD)
@@ -657,10 +690,9 @@ static void track_control(const track_result_t *line)
             error += (error + 16) / 3;
     }
 #endif
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
     /* A car parallel to a straight can have almost no heading error while
      * its whole footprint is displaced. Restore steering progressively. */
-    int correction = 0;
     if (track_mode16_phase == A16_ROAD && (track_mode16_straight || track_mode16_obstacle_side) &&
         line->anchor_confidence >= TRACK_DRIVE_MIN_ANCHOR_CONFIDENCE &&
         line->target_confidence >= TRACK_DRIVE_MIN_TARGET_CONFIDENCE) {
@@ -673,8 +705,7 @@ static void track_control(const track_result_t *line)
         }
     }
 #endif
-#if TRACK_ALGORITHM == 16
-    int bend_support=0;
+#if TRACK_HAS_A16_ELEMENTS
     if(track_mode16_phase==A16_ROAD && !track_mode16_obstacle_side &&
        track_mode16_path_confidence[72]>=60 && line->anchor_confidence>=60 && line->target_confidence>=60) {
         int far=track_mode16_path_x[72]-line->target_x;
@@ -684,13 +715,19 @@ static void track_control(const track_result_t *line)
         }
     }
 #endif
+#if TRACK_ALGORITHM == 18
+    }
+#endif
     int32_t angle = (int32_t)TRACK_SERVO_CENTER_DEG -
                     (error * steer_gain) / 100;
-#if TRACK_ALGORITHM == 3 || TRACK_ALGORITHM == 16
+#if TRACK_ALGORITHM == 3 || TRACK_HAS_A16_ELEMENTS
     /* Apply the user's configured maximum steering deviation. */
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
     /* Keep straight-road vision noise from commanding large servo swings,
      * while progressively restoring the full range as the traced path bends. */
+#if TRACK_ALGORITHM == 18
+    if (track18_special)
+#endif
     if (line->anchor_confidence >= TRACK_DRIVE_MIN_ANCHOR_CONFIDENCE &&
         line->target_confidence >= TRACK_DRIVE_MIN_TARGET_CONFIDENCE) {
         int32_t heading = (int32_t)line->target_x - (int32_t)line->anchor_x;
@@ -705,7 +742,9 @@ static void track_control(const track_result_t *line)
             angle = (int32_t)TRACK_SERVO_CENTER_DEG + limit;
     }
 #endif
-#if TRACK_ALGORITHM == 16
+#if TRACK_ALGORITHM == 18
+    const int travel_limit = track18_special ? TRACK_A16_MAX_STEER_DELTA_DEG : TRACK_A3_MAX_STEER_DELTA_DEG;
+#elif TRACK_HAS_A16_ELEMENTS
     const int travel_limit = TRACK_A16_MAX_STEER_DELTA_DEG;
 #else
     const int travel_limit = TRACK_A3_MAX_STEER_DELTA_DEG;
@@ -720,7 +759,10 @@ static void track_control(const track_result_t *line)
     if (!track17_uses_ring()) pwm_cap_percent = TRACK_A17_ROAD_PWM_PERCENT;
     if (track17_corner_active && pwm_cap_percent > 17U) pwm_cap_percent = 17U;
 #endif
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
+#if TRACK_ALGORITHM == 18
+    if (track18_special)
+#endif
     if ((track_mode16_corner_active || track_mode16_obstacle_side) && pwm_cap_percent > 17U) pwm_cap_percent = 17U;
 #endif
     uint8_t allowed = track_arm_request == 1U &&
@@ -744,7 +786,7 @@ static void track_control(const track_result_t *line)
     float correction1 = 0.0f;
     float correction2 = 0.0f;
 #endif
-#if TRACK_ALGORITHM == 16 || TRACK_ALGORITHM == 17
+#if TRACK_HAS_A16_ELEMENTS || TRACK_ALGORITHM == 17
     if (!allowed
 #if TRACK_ALGORITHM == 17
         && track17_uses_ring()
@@ -753,7 +795,7 @@ static void track_control(const track_result_t *line)
         track_target_x = (uint32_t)line->target_x;
         track_target_confidence = line->target_confidence;
         track_valid_rows = line->valid_rows;
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
         if (track_arm_request == 1U && a16_frame_ms < TRACK_CAMERA_LOST_TIMEOUT_MS) {
             /* Enter only after a driven frame. Zero duty keeps startup and
              * an expired search stationary until a usable path returns. */
@@ -784,13 +826,15 @@ static void track_control(const track_result_t *line)
 #endif
     if (angle < (int32_t)TRACK_SERVO_RIGHT_DEG) angle = (int32_t)TRACK_SERVO_RIGHT_DEG;
     if (angle > (int32_t)TRACK_SERVO_LEFT_DEG) angle = (int32_t)TRACK_SERVO_LEFT_DEG;
-#if TRACK_ALGORITHM == 16 || TRACK_ALGORITHM == 17
+#if TRACK_HAS_A16_ELEMENTS || TRACK_ALGORITHM == 17
     if (allowed && (track_mode16_phase==A16_ENTRY || track_mode16_phase==A16_ARC || track_mode16_phase==A16_MERGE))
         angle=(int32_t)TRACK_SERVO_CENTER_DEG + track_mode16_curve_command;
     /* Slew-limit noisy frame-to-frame commands. Keep straight-road corrections
      * gentle, but allow twice the rate when the traced path clearly bends. */
 #if TRACK_ALGORITHM == 17
     if (track17_uses_ring())
+#elif TRACK_ALGORITHM == 18
+    if (track18_special)
 #endif
     {
         int32_t previous = (int32_t)track_servo_angle;
@@ -801,7 +845,7 @@ static void track_control(const track_result_t *line)
             if (heading < 0) heading = -heading;
             if (heading >= 3) max_step = 3;
             if (heading >= 6) max_step = 6;
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
             if (heading >= 6) max_step = TRACK_A16_BEND_STEP_DEG;
             if (bend_support) max_step = TRACK_A16_SUSTAINED_BEND_STEP_DEG;
 #endif
@@ -825,7 +869,7 @@ static void track_control(const track_result_t *line)
                        line->target_confidence >= TRACK_DRIVE_MIN_TARGET_CONFIDENCE ? TRACK_A16_ROAD_RETURN_STEP_DEG : 6;
 #endif
         }
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
         if (track_mode16_corner_active) max_step = 15;
 #endif
         if (angle > previous + max_step) angle = previous + max_step;
@@ -851,7 +895,7 @@ static void track_control(const track_result_t *line)
         return;
     }
 
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
     road_search_remaining_ms = 0U;
 #endif
     /* Open-loop PWM: one shared ramped command, then an independent per-wheel
@@ -876,7 +920,10 @@ static void track_control(const track_result_t *line)
     if (turn_span > 0)
         speed_scale_x100 -= (slowdown_percent * 100U *
                              (uint32_t)turn_amount) / (uint32_t)turn_span;
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
+#if TRACK_ALGORITHM == 18
+    if (track18_special)
+#endif
     speed_scale_x100 = track16_exit_scale(speed_scale_x100, turn_amount);
 #endif
     /* Smooth steering-angle noise so curve slowdown cannot pulse wheel output
@@ -1001,7 +1048,7 @@ void main(void)
         if (!mt9v03x_csi_finish_flag)
         {
             uint32_t timeout_ms = TRACK_CAMERA_LOST_TIMEOUT_MS;
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
             if (road_search_remaining_ms && road_search_remaining_ms < timeout_ms) timeout_ms = road_search_remaining_ms;
 #endif
             if ((uint32_t)(DWT->CYCCNT - last_frame_cycle) >=
@@ -1070,7 +1117,7 @@ void main(void)
         track_fsm_state = line.state;
         track_fsm_reason = line.reason;
 #else
-#if TRACK_ALGORITHM == 16 || TRACK_ALGORITHM == 17
+#if TRACK_HAS_A16_ELEMENTS || TRACK_ALGORITHM == 17
         track_mode16_set_frame_dt((DWT->CYCCNT - last_frame_cycle) / (SystemCoreClock / 1000U));
 #endif
         last_frame_cycle = DWT->CYCCNT;
@@ -1092,14 +1139,19 @@ void main(void)
             track_mode16_binary_preview(camera_test_image, camera_test_display_image, line.global_threshold);
         else
             track_mode4_binary_preview(camera_test_image, camera_test_display_image);
-#elif TRACK_ALGORITHM == 16
+#elif TRACK_ALGORITHM == 18
+        if (track18_special)
+            track_mode16_binary_preview(camera_test_image, camera_test_display_image, line.global_threshold);
+        else
+            track_mode4_binary_preview(camera_test_image, camera_test_display_image);
+#elif TRACK_HAS_A16_ELEMENTS
         TRACK_MODE_BINARY_PREVIEW(camera_test_image, camera_test_display_image,
                                   line.global_threshold);
 #else
         track_mode1_binary_preview(camera_test_image, camera_test_display_image,
                                    line.global_threshold);
 #endif
-#if TRACK_ALGORITHM == 16 || TRACK_ALGORITHM == 17
+#if TRACK_HAS_A16_ELEMENTS || TRACK_ALGORITHM == 17
         for (y = 16U; y < MT9V03X_CSI_H - 3U; ++y)
 #elif TRACK_ALGORITHM == 11 || TRACK_ALGORITHM == 12 || (TRACK_ALGORITHM == 13 || TRACK_ALGORITHM == 14 || TRACK_ALGORITHM == 15)
         for (y = 20U; y < MT9V03X_CSI_H - 3U; ++y)
@@ -1247,12 +1299,12 @@ void main(void)
             lcd_showstr(0, 0, (const int8 *)"                ");
             lcd_showstr(0, 0, (const int8 *)element_text);
         }
-#elif TRACK_ALGORITHM == 16 || TRACK_ALGORITHM == 17
+#elif TRACK_HAS_A16_ELEMENTS || TRACK_ALGORITHM == 17
         {
             char text[17];
             static const char *phase_names[] = {"ROAD", "PREP", "ENTRY", "ARC", "MERGE", "WAIT"};
             snprintf(text, sizeof(text), "%u %s %c Y%ld", (unsigned)TRACK_ALGORITHM,
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
                      track16_lap == A16_LAP_FINISHED ? "FINISH" :
 #endif
                      phase_names[track_mode16_phase <= A16_WAIT ? track_mode16_phase : A16_WAIT],

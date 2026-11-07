@@ -4,13 +4,13 @@
 
 static uint16_t island_queue[TRACK_MODE1_HEIGHT * TRACK_MODE1_WIDTH];
 static int16_t island_left[120], island_right[120];
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
 #define ENTRY_CONFIRM_FRAMES TRACK_A16_ENTRY_CONFIRM_FRAMES
 #else
 #define ENTRY_CONFIRM_FRAMES 3U
 #endif
 static uint8_t island_votes, merge_votes;
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
 static uint8_t approach_curve_frames;
 #endif
 static uint8_t island_open_candidate;
@@ -89,7 +89,7 @@ static int observe_open_island(void)
         if (gap_right[y] - gap_left[y] + 1 > widest) widest = gap_right[y] - gap_left[y] + 1;
     }
     if (count < 3 || bottom - top < 3 || widest > 30) return 0;
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
     /* Before commitment, a split alone can be the triangular gap of an
      * oblique crossing. Require curvature: the visible gap widens and then
      * narrows. After entry its tip can leave the image on either side. */
@@ -104,7 +104,7 @@ static int observe_open_island(void)
         (side != track_mode16_island_side ||
          (island_passed && bottom + 22 < last_island_bottom))) return 0;
 
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
     /* A diagonal strip across a bend can leave two bright lobes. During
      * acquisition, reject a gap whose two edges sweep together faster
      * across the image than its vertical extent. */
@@ -134,7 +134,7 @@ static int observe_open_island(void)
     return 1;
 }
 
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
 /* For an island touching the image edge on every row, require a visible
  * far branch on that same side: white corridor, dark edge, white corridor. */
 static int visible_far_branch(int top, int clipped_left)
@@ -289,7 +289,7 @@ static int observe_island(void)
         }
         if (tail < 100U || tail > 10000U || bottom - top < 6 || bottom < 28 ||
             xmax - xmin > 145 || bottom - top > (tracking ? 100 : 85)) continue;
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
         /* A distant island cannot become a near road shoulder in one vote.
          * Apply association only while confirming the first three views. */
         if (approach_curve_frames >= 2 && track_mode16_phase == A16_PREP &&
@@ -309,7 +309,7 @@ static int observe_island(void)
         }
         if (widest < 10 || widest - narrowest < 4) continue;
         if (!tracking) {
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
             if (!island_shape(left,right,top,bottom)) continue;
             if ((xmin<=2 || xmax>=185) && bottom>=98 && bottom-top>42 && support<8)
                 continue;  /* A long near shoulder can also fit a circle on a hairpin. */
@@ -334,7 +334,7 @@ static int observe_island(void)
 #else
             if (xmin <= 2 || xmax >= 185 || support < 6) continue;
 #endif
-#if TRACK_ALGORITHM == 16 || TRACK_ALGORITHM == 17
+#if TRACK_HAS_A16_ELEMENTS || TRACK_ALGORITHM == 17
             /* A marking across the near lane can clip the observation window
              * and look like an island. Apply this only to first acquisition. */
             int height = bottom - top + 1;
@@ -362,7 +362,7 @@ static int observe_island(void)
     }
     if (!found) {
         found=observe_open_island();
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
         if (found && (track_mode16_phase==A16_ROAD || track_mode16_phase==A16_WAIT)) {
             int top=20;
             while (top<track_mode16_island_bottom && island_left[top]<0) ++top;
@@ -380,7 +380,7 @@ static int observe_island(void)
         }
         if (track_mode16_phase == A16_ROAD || track_mode16_phase == A16_WAIT)
             track_mode16_island_side = (l+r)/2 < 94 ? -1 : 1;
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
         /* Recheck direction immediately before committing, once turn-in has
          * brought the camera back in line with the approach. */
         if (track_mode16_phase == A16_PREP && island_votes >= ENTRY_CONFIRM_FRAMES - 1U &&
@@ -406,7 +406,7 @@ static int observe_island(void)
     return found;
 }
 
-#if TRACK_ALGORITHM == 16 || TRACK_ALGORITHM == 17
+#if TRACK_HAS_A16_ELEMENTS || TRACK_ALGORITHM == 17
 #include "a17_turn_samples.inc"
 #else
 #include "a16_turn_samples.inc"
@@ -436,7 +436,7 @@ static int plan_turn(track_mode1_result_t *out)
     int side = track_mode16_island_side;
     for (int t = -14; t <= 14; ++t) {
         int k = t < 0 ? -t : t, count = 0, room = 0;
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
         int clearance = 0;
 #endif
         for (int i = 0; i < 31; ++i) {
@@ -448,7 +448,7 @@ static int plan_turn(track_mode1_result_t *out)
                 (side<0 ? x<=island_right[y] : x>=island_left[y])) break;
             if (!a16_binary_image[y][x-margin] || !a16_binary_image[y][x+margin]) break;
             ++count;
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
             /* Reward space inside both lane edges along the near part of the arc.
              * Beyond the camera margin the available clearance is unknown. */
             if (track_mode16_phase == A16_ARC && count <= 16) {
@@ -466,7 +466,7 @@ static int plan_turn(track_mode1_result_t *out)
         }
         if (!t) straight = count;
         int score;
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
         if (track_mode16_phase == A16_ARC) {
             score = (count > 22 ? 22 : count) * 13 + clearance * 3 + t * side * 5;
         } else
@@ -545,7 +545,7 @@ static int island_lane_x(int y, int left, int right)
     return track_mode16_island_side < 0 ? left + clearance : right - clearance;
 }
 
-#if TRACK_ALGORITHM == 16 || TRACK_ALGORITHM == 17
+#if TRACK_HAS_A16_ELEMENTS || TRACK_ALGORITHM == 17
 /* A cross has a continuous forward lane and a transverse white band that
  * opens beyond BOTH edges of that lane. One missing edge also occurs in bends. */
 static int cross_before_entry(int cx)
@@ -558,7 +558,7 @@ static int cross_before_entry(int cx)
         while (right < 185 && a16_binary_image[ref][right+1]) ++right;
         if (right-left < 12 || left < 21 || right > 166) { votes = 0; continue; }
         int probe_left = left - 18, probe_right = right + 18;
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
         /* A cross opens on both sides and closes again toward the car.
          * A roundabout entrance can widen continuously on just one side. */
         int near_y = y + 24;
@@ -596,7 +596,7 @@ void a16_plan_island(track_mode1_result_t *out)
             return;
         }
     }
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
     int committed_now = 0;
     if (track_mode16_phase == A16_ROAD) {
         int drift = track_mode16_path_x[74] - track_mode16_path_x[102];
@@ -607,7 +607,7 @@ void a16_plan_island(track_mode1_result_t *out)
     } else if (track_mode16_phase != A16_PREP) approach_curve_frames = 0;
 #endif
     int observed=observe_island();
-#if TRACK_ALGORITHM == 16 || TRACK_ALGORITHM == 17
+#if TRACK_HAS_A16_ELEMENTS || TRACK_ALGORITHM == 17
     if (observed && (track_mode16_phase == A16_ROAD || track_mode16_phase == A16_PREP ||
                      track_mode16_phase == A16_WAIT)) {
         int cx = out->anchor_confidence >= 40 ? out->anchor_x : TRACK_STEER_REFERENCE_X;
@@ -645,11 +645,11 @@ void a16_plan_island(track_mode1_result_t *out)
         if (island_votes < ENTRY_CONFIRM_FRAMES) ++island_votes;
         if (island_votes < ENTRY_CONFIRM_FRAMES || track_mode16_island_bottom < 30) return;
         track_mode16_phase=A16_ENTRY;
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
         committed_now = 1;
 #endif
     }
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
     if (track_mode16_island_bottom>=98) {
         if (!committed_now) track_mode16_phase=A16_ARC;
         island_passed=1;
@@ -665,7 +665,7 @@ void a16_plan_island(track_mode1_result_t *out)
                 track_mode16_target_row=y;out->target_x=tx;out->target_confidence=80;
                 track_mode16_path_x[y]=tx;track_mode16_path_confidence[y]=80;
                 track_mode16_curve_command=((int)TRACK_STEER_REFERENCE_X-tx)/4;
-                #if TRACK_ALGORITHM == 16
+                #if TRACK_HAS_A16_ELEMENTS
                 const int entry_limit=10;
 #else
                 const int entry_limit=4;
@@ -704,7 +704,7 @@ void a16_ring_reset(void)
     track_mode16_phase = A16_ROAD;
     track_mode16_island_side = 0;
     track_mode16_island_bottom = -1;
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
     approach_curve_frames = 0U;
 #endif
     island_votes = merge_votes = island_passed = 0U;

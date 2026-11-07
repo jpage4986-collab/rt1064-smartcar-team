@@ -1,7 +1,7 @@
 /* Reproject the measured camera to the ground-plane coordinates used by A16.
  * The table is built once. An index outside the sensor has no road evidence. */
 #include "a16_internal.h"
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
 #include <math.h>
 
 static uint16_t source_pixel[TRACK_MODE1_HEIGHT][TRACK_MODE1_WIDTH];

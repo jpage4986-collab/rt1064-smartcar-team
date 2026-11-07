@@ -27,7 +27,19 @@ def group(title, spec):
         FIELDS["TRACK_" + name] = dict(group=title, label=label, unit="" if unit=="-" else unit,
                                        min=float(low), max=float(high), step=float(step))
 
-group("视觉与前视", """
+group("算法选择", """
+ALGORITHM 算法编号（16或18） - 16 18 2
+""")
+group("算法3普通路（算法18）", """
+CONT_SCAN_TOP_ROW 普通路扫描顶行 行 16 100 1
+CONT_TARGET_ROW 普通路前视目标行 行 17 117 1
+CONT_ANCHOR_ROW 普通路近处锚点行 行 18 118 1
+A3_MAX_STEER_DELTA_DEG 普通路最大舵角偏移 ° 1 32 1
+CONT_LOCAL_PERCENT 局部阈值位置 % 0 100 1
+CONT_GLOBAL_WEIGHT_PERCENT 全局阈值权重 % 0 100 1
+CONT_GAP_CLOSE_PIXELS 补线缺口 px 0 16 1
+""")
+group("算法16元素视觉", """
 MODE16_GRAY_THRESHOLD 基础灰度阈值 灰阶 1 254 1
 A16_CONTRAST_GAIN_PERCENT 二值化对比度 % 100 200 1
 A16_ENTRY_CONFIRM_FRAMES 环岛入口确认帧数 帧 2 6 1
@@ -101,6 +113,8 @@ def validate(v):
         x=v[key]
         if type(x) not in (float,int) or not math.isfinite(x) or not field['min']<=x<=field['max'] or abs(x/field['step']-round(x/field['step']))>1e-6:
             raise ValueError(field['label']+" 超出范围或精度")
+    if not v['TRACK_CONT_SCAN_TOP_ROW'] < v['TRACK_CONT_TARGET_ROW'] < v['TRACK_CONT_ANCHOR_ROW']:
+        raise ValueError("算法3的扫描顶行、目标行、锚点行须依次增大")
     if v['TRACK_A16_LOOKAHEAD_ROW']>=v['TRACK_A16_NEAR_ROW']:raise ValueError("前视行必须小于近视行")
     if not v['TRACK_SERVO_RIGHT_DEG']<v['TRACK_SERVO_CENTER_DEG']<v['TRACK_SERVO_LEFT_DEG']:raise ValueError("舵机中位须在左右限位之间")
     if not v['TRACK_OTSUSCAN_SCAN_TOP_ROW']<v['TRACK_OTSUSCAN_TARGET_ROW']<v['TRACK_OTSUSCAN_ANCHOR_ROW']:raise ValueError("基础扫描行顺序有误")

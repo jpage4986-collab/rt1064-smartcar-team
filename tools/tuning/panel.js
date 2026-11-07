@@ -69,9 +69,39 @@ function draw(id,gray){
     for(let i=0;i<N;i++){pixels.data.fill(gray[i],4*i,4*i+3);pixels.data[4*i+3]=255;}
     ctx.putImageData(pixels,0,0);return ctx;
 }
+function roadPreview(frame){
+    const hist=new Uint32Array(256), mask=new Uint8Array(N);
+    const first=val('CONT_SCAN_TOP_ROW'), total=(119-first)*W;
+    let sum=0;
+    for(let i=first*W;i<119*W;i++){hist[frame[i]]++;sum+=frame[i];}
+    let threshold=127,best=0,count=0,weight=0;
+    for(let t=0;t<256;t++){
+        count+=hist[t]; weight+=t*hist[t];
+        if(!count || count===total)continue;
+        const score=(weight*total-sum*count)**2/(count*(total-count));
+        if(score>best){best=score;threshold=t;}
+    }
+    for(let y=0;y<H;y++){
+        const start=y*W, row=frame.slice(start,start+W).sort();
+        const local=row[18]+Math.floor(val('CONT_LOCAL_PERCENT')*(row[168]-row[18])/100);
+        const pct=val('CONT_GLOBAL_WEIGHT_PERCENT'), t=Math.floor((pct*threshold+(100-pct)*local)/100);
+        let last=-1;
+        for(let x=0;x<W;x++){
+            if(frame[start+x]<=t)continue;
+            if(last>=0 && x-last-1<=val('CONT_GAP_CLOSE_PIXELS'))mask.fill(255,start+last+1,start+x);
+            mask[start+x]=255;last=x;
+        }
+    }
+    return {mask,threshold};
+}
 function preview(){
     if(!footage)return;
-    const i=Number($('frame').value)-1,frame=footage.subarray(i*N,(i+1)*N),t=cutoff(frame);buildMap();
+    const i=Number($('frame').value)-1,frame=footage.subarray(i*N,(i+1)*N),t=cutoff(frame);
+    if(val('ALGORITHM')===18){
+        const road=roadPreview(frame);
+        showFrame(frame,road.mask,road.threshold,i,'CONT_TARGET_ROW','CONT_ANCHOR_ROW');return;
+    }
+    buildMap();
     const binary=new Uint8Array(N);
     for(let y=2;y<H;y++)for(let x=2;x<W-2;x++){const k=y*W+x;binary[k]=map[k]>=0 && frame[map[k]]>t?255:0;}
     const clean=binary.slice();
@@ -81,24 +111,28 @@ function preview(){
         if(binary[k]===0 && count>=5)clean[k]=255;
         if(binary[k] && count<=2)clean[k]=0;
     }
+    showFrame(frame,clean,t,i,'A16_LOOKAHEAD_ROW','A16_NEAR_ROW');
+}
+function showFrame(frame,clean,t,i,far,near){
     draw('raw',frame);const ctx=draw('bin',clean);
-    for(const [row,color] of [[val('A16_LOOKAHEAD_ROW'),'#008ef2'],[val('A16_NEAR_ROW'),'#e57c00']]){
+    for(const [row,color] of [[val(far),'#008ef2'],[val(near),'#e57c00']]){
         ctx.fillStyle=color;for(let x=0;x<W;x+=6)ctx.fillRect(x,row,4,1);
     }
     $('threshold').textContent='· 阈值 '+t;$('frameNo').textContent=(i+1)+' / '+footage.length/N;
 }
 function refresh(){
+    $('mode').textContent='算法 '+val('ALGORITHM')+(val('ALGORITHM')===18?' · 普通路预览':'');
     const changes=[];
     for(const [key,row] of controls){
         const diff=draft[key]!==baseline[key];row.classList.toggle('changed',diff);
         if(diff)changes.push(settings.fields[key].label+'　'+baseline[key]+' → '+draft[key]+' '+settings.fields[key].unit);
     }
     $('changes').textContent=changes.join('\n')||'与工程配置一致';
-    const center=val('SERVO_CENTER_DEG'),limit=val('A16_MAX_STEER_DELTA_DEG');
+    const center=val('SERVO_CENTER_DEG'),limit=val(val('ALGORITHM')===18?'A3_MAX_STEER_DELTA_DEG':'A16_MAX_STEER_DELTA_DEG');
     const cap=val('WHEEL_PWM_MAX_PERCENT'),floor=Math.min(cap,val('MOTOR_MIN_MOVING_PERCENT'));
     const dutyAt=pct=>[1,2].map(m=>Math.min(100,pct*val('MOTOR'+m+'_OUTPUT_SCALE_PERCENT')/100).toFixed(1)+'%').join(' / ');
     const px=Number($('err').value);
-    const dev=Math.trunc(px*(val('STEER_GAIN_CENTIDEG_PER_PIXEL')+3)/100);
+    const dev=Math.trunc(px*(val('STEER_GAIN_CENTIDEG_PER_PIXEL')+(val('ALGORITHM')===18?0:3))/100);
     const servo=Math.min(val('SERVO_LEFT_DEG'),center+limit,Math.max(val('SERVO_RIGHT_DEG'),center-limit,center-dev));
     $('response').textContent=px+' px → '+servo+'°';
     const estimate=val('SPEED_PID_ENABLED')?'闭环调节':dutyAt(Math.max(floor,cap*(1-val('CURVE_SLOWDOWN_PERCENT')/100)));

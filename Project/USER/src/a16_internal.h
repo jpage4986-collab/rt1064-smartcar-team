@@ -1,7 +1,7 @@
 #ifndef A16_INTERNAL_H
 #define A16_INTERNAL_H
 #include "track_mode16.h"
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
 #define A16_ROAD_TARGET_ROW 96U
 /* Let the near lane guide entry until the side opening reaches the car. */
 #define A16_CORNER_START_ROW 102
@@ -18,7 +18,7 @@ extern uint8_t a16_binary_scratch[TRACK_MODE1_HEIGHT][TRACK_MODE1_WIDTH];
 extern uint32_t a16_frame_ms;
 void a16_ring_reset(void);
 void a16_plan_island(track_mode1_result_t *road);
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
 extern volatile uint32_t track_motor_duty;
 extern unsigned a16_departure_mark_ms;
 const uint8_t (*a16_reference_view(const uint8_t raw[][TRACK_MODE1_WIDTH]))[TRACK_MODE1_WIDTH];

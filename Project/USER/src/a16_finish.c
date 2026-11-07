@@ -2,7 +2,7 @@
 #include <string.h>
 #include <math.h>
 
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
 /* Keep race state across vision resets (blank frames and temporary line loss). */
 unsigned track16_lap;
 static unsigned clear_drive_ms;

@@ -20,7 +20,8 @@ class Firmware:
         self.cpu.reg_write(UC_ARM_REG_FPEXC,0x40000000)
         for name in ('gpio_set','pwm_duty'):
             self.cpu.mem_write(self.symbol[name]&~1,b'\x70\x47')
-        self.call('track_mode16_reset')
+        self.planner = 'track18' if self.value('track_mode_number') == 18 else 'track_mode16'
+        self.call(self.planner + '_reset')
 
     def call(self,name,*args):
         cpu=self.cpu
@@ -39,7 +40,7 @@ class Firmware:
         if len(frame)!=188*120:raise ValueError('expected a 188 x 120 grayscale frame')
         self.cpu.mem_write(0x81000000,frame)
         self.call('track_mode16_set_frame_dt',dt_ms)
-        self.call('track_mode16_process',0x81006000,0x81000000)
+        self.call(self.planner + '_process',0x81006000,0x81000000)
         self.call('track_control',0x81006000)
         return dict(lap=self.value('track16_lap'),phase=self.value('track_mode16_phase'),
                     servo=self.value('track_servo_angle'),duty=self.value('track_motor_duty'),

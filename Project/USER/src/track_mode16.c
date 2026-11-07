@@ -26,7 +26,7 @@ void track_mode16_set_frame_dt(uint32_t dt_ms)
 }
 
 int track_mode16_corner_active;
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
 static unsigned road_recovery_frames;
 static int lost_ordinary_road;
 int track_mode16_obstacle_side;
@@ -140,7 +140,7 @@ static int find_connected_run(int y, int previous_left, int previous_right,
 
 void track_mode16_reset(void)
 {
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
     road_recovery_frames = 0;
     lost_ordinary_road = 0;
     a16_obstacle_reset();
@@ -164,7 +164,7 @@ void track_mode16_binary_preview(
     (void)input;
 }
 
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
 /* At a tight L-turn the bottom run may fill the frame while the next
  * connected run moves more than the normal 40 pixel association limit.
  * Retry only a lost ROAD path, requiring a measured continuous exit on
@@ -210,7 +210,7 @@ static int retrace_corner(track_mode1_result_t *road)
 
 #endif
 
-#if TRACK_ALGORITHM == 16 || TRACK_ALGORITHM == 17
+#if TRACK_HAS_A16_ELEMENTS || TRACK_ALGORITHM == 17
 /* Look for the end of the forward lane and a connected, one-sided exit.
  * Use the current bottom-connected contour for both the target and anchor. */
 int track_mode16_corner(track_mode1_result_t *road, int weak_road)
@@ -265,7 +265,7 @@ int track_mode16_corner(track_mode1_result_t *road, int weak_road)
 }
 #endif
 
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
 /* Continue a measured far trunk across an opening on both sides. The two
  * side arms of a slanted cross can reach opposite edges at different rows. */
 static int crossing_trunk(track_mode1_result_t *road)
@@ -342,7 +342,7 @@ track_mode1_result_t track_mode16_process(
         cum+=hist[i];if(cum*10<n)low=i+1;
         if(cum*10>=n*9){high=i;break;}
     }
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
     if (high >= low + 10U && high * 8U < result.global_threshold + 24U)
         result.global_threshold = (uint8_t)((low + 3U * high) * 2U);
     /* A threshold in stretched gray is equivalent to its inverse in native
@@ -360,13 +360,13 @@ track_mode1_result_t track_mode16_process(
     if (high*8+7 < result.global_threshold && high>=low+10)
         result.global_threshold=(uint8_t)((low+high)*4+4);
 #endif
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
     /* Measure exposure in native pixels before masking unobservable ground. */
     image = a16_reference_view(image);
     a16_update_lap(image,low,high);
 #endif
     make_binary(image, result.global_threshold);
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
     /* A uniformly white exposure is a connected white run but provides no
      * observable lane edges. Count sparse minority pixels as sensor noise. */
     unsigned darker = 0, brighter = 0;
@@ -385,7 +385,7 @@ track_mode1_result_t track_mode16_process(
     }
 #endif
     filter_binary();
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
     if (a16_departure_mark_ms) a16_join_departure_rails();
 #endif
     track_mode16_target_row = TRACK_OTSUSCAN_TARGET_ROW;
@@ -442,7 +442,7 @@ track_mode1_result_t track_mode16_process(
             }
         }
     }
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
     if (lost_ordinary_road && track_mode16_phase == A16_WAIT) {
         /* Recover a washed-out ordinary bend as soon as two fresh frames
          * contain a connected, measured near lane. Ring WAIT stays separate. */
@@ -458,11 +458,11 @@ track_mode1_result_t track_mode16_process(
     track_mode16_straight = track_mode16_inside_px = 0;
     if (a16_plan_obstacle(&result,image)) return result;
 #endif
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
     if (!a16_departure_mark_ms)
 #endif
         a16_plan_island(&result);
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
     if (!a16_departure_mark_ms && track_mode16_phase == A16_ROAD && crossing_trunk(&result)) {
         track_mode16_corner_active = 0;
         return result;
@@ -474,11 +474,11 @@ track_mode1_result_t track_mode16_process(
     if (track_mode16_phase==A16_ROAD && result.valid_rows<TRACK_DRIVE_MIN_VALID_ROWS &&
         retrace_corner(&result)) return result;
 #endif
-#if TRACK_ALGORITHM == 16 || TRACK_ALGORITHM == 17
+#if TRACK_HAS_A16_ELEMENTS || TRACK_ALGORITHM == 17
     if (track_mode16_phase == A16_ROAD) {
         /* Select the near-field rows only after the island planner has used
          * the original full-depth observation for its state transitions. */
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
         const int target_row = TRACK_A16_LOOKAHEAD_ROW;
         const int anchor_row = TRACK_A16_NEAR_ROW;
 #else
@@ -488,7 +488,7 @@ track_mode1_result_t track_mode16_process(
         track_mode16_target_row = target_row;
         result.target_confidence = track_mode16_path_confidence[target_row];
         result.anchor_confidence = track_mode16_path_confidence[anchor_row];
-#if TRACK_ALGORITHM == 16
+#if TRACK_HAS_A16_ELEMENTS
         for (int y = anchor_row; y >= target_row; --y) {
             if (!track_mode16_path_confidence[y]) continue;
             int left = track_mode16_path_x[y], right = left;
