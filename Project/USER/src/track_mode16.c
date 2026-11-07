@@ -238,6 +238,46 @@ static int rounded_side_edge(const int16_t *edge, int top, int bottom, int clipp
     return min_r >= 0.12f && max_r <= 0.40f && max_r-min_r <= spread;
 }
 
+/* Fit the ground-plane circle using only visible boundary pixels. */
+static int island_shape(const int16_t *left, const int16_t *right, int top, int bottom)
+{
+    float xs[112], ys[112], mx=0, my=0;
+    int n=0;
+    if (bottom<53 || top<=20 || bottom>=115) return 0;
+    for (int y=top+1;y<bottom;y+=2) {
+        for (int side=0;side<2;++side) {
+            int x=side ? right[y] : left[y];
+            if (x<4 || x>183) continue;
+            float u=(x-93.5f)/122.5f, v=(59.5f-y)/122.5f;
+            float c=1.0f/sqrtf(1+u*u), down=.258819f*c-.965926f*v;
+            if (down<.13f) continue;
+            xs[n]=.23f*u*c/down;
+            ys[n]=.23f*(.965926f*c+.258819f*v)/down;
+            mx+=xs[n]; my+=ys[n]; ++n;
+        }
+    }
+    if (n<8) return 0;
+    mx/=n; my/=n;
+    float xx=0,yy=0,xy=0,xz=0,yz=0;
+    for(int i=0;i<n;++i){
+        xs[i]-=mx;ys[i]-=my;
+        float z=(xs[i]*xs[i]+ys[i]*ys[i])*.5f;
+        xx+=xs[i]*xs[i];yy+=ys[i]*ys[i];xy+=xs[i]*ys[i];
+        xz+=xs[i]*z;yz+=ys[i]*z;
+    }
+    float det=xx*yy-xy*xy;
+    if(det<1e-7f)return 0;
+    float cx=(yy*xz-xy*yz)/det,cy=(xx*yz-xy*xz)/det;
+    float rsum=0,r2sum=0;
+    for(int i=0;i<n;++i){
+        float dx=xs[i]-cx,dy=ys[i]-cy,rr=dx*dx+dy*dy;
+        rsum+=sqrtf(rr);r2sum+=rr;
+    }
+    float radius=rsum/n;
+    return radius>.14f && radius<.39f && cy+my<1.25f && cy+my>.12f &&
+           fabsf(cx+mx)<.80f && r2sum/n-radius*radius<.00036f;
+}
+
 /* Classify a visible island relative to the incoming lane. An off-axis
  * camera can put a right-hand island in the left half of the frame. */
 static int approach_reference_x(int bottom)
@@ -314,6 +354,9 @@ static int observe_island(void)
         if (widest < 10 || widest - narrowest < 4) continue;
         if (!tracking) {
 #if TRACK_ALGORITHM == 16
+            if (!island_shape(left,right,top,bottom)) continue;
+            if ((xmin<=2 || xmax>=185) && bottom>=98 && bottom-top>42 && support<8)
+                continue;  /* A long near shoulder can also fit a circle on a hairpin. */
             if (xmin <= 2 || xmax >= 185) {
                 /* A partly clipped island still has a visible tip and an
                  * open corridor above and below it. Reject a black border
@@ -361,7 +404,16 @@ static int observe_island(void)
         island_max_row = widest_row;
         /* Do not update the association reference until all components scored. */
     }
-    if (!found) found = observe_open_island();
+    if (!found) {
+        found=observe_open_island();
+#if TRACK_ALGORITHM == 16
+        if (found && (track_mode16_phase==A16_ROAD || track_mode16_phase==A16_WAIT)) {
+            int top=20;
+            while (top<track_mode16_island_bottom && island_left[top]<0) ++top;
+            if (!island_shape(island_left,island_right,top,track_mode16_island_bottom)) found=0;
+        }
+#endif
+    }
     if (found && !island_open_candidate) {
         int l = 188, r = 0, t = 119, b = 0;
         for (y = 16; y <= 115; ++y) if (island_left[y] >= 0) {
@@ -765,8 +817,13 @@ static void plan_island(track_mode1_result_t *out)
                 track_mode16_target_row=y;out->target_x=tx;out->target_confidence=80;
                 track_mode16_path_x[y]=tx;track_mode16_path_confidence[y]=80;
                 track_mode16_curve_command=((int)TRACK_STEER_REFERENCE_X-tx)/4;
-                if(track_mode16_curve_command>4)track_mode16_curve_command=4;
-                if(track_mode16_curve_command< -4)track_mode16_curve_command=-4;
+                #if TRACK_ALGORITHM == 16
+                const int entry_limit=10;
+#else
+                const int entry_limit=4;
+#endif
+                if(track_mode16_curve_command>entry_limit)track_mode16_curve_command=entry_limit;
+                if(track_mode16_curve_command< -entry_limit)track_mode16_curve_command=-entry_limit;
                 return;
             }
         }

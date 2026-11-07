@@ -642,6 +642,17 @@ static void track_control(const track_result_t *line)
         }
     }
 #endif
+#if TRACK_ALGORITHM == 16
+    int bend_support=0;
+    if(track_mode16_phase==A16_ROAD && !track_mode16_obstacle_side &&
+       track_mode16_path_confidence[72]>=60 && line->anchor_confidence>=60 && line->target_confidence>=60) {
+        int far=track_mode16_path_x[72]-line->target_x;
+        int near=line->target_x-line->anchor_x;
+        if((far>=5 && near>=3 && error>4)||(far<=-5 && near<=-3 && error< -4)){
+            bend_support=1;error+=far/3;steer_gain+=4;
+        }
+    }
+#endif
     int32_t angle = (int32_t)TRACK_SERVO_CENTER_DEG -
                     (error * steer_gain) / 100;
 #if TRACK_ALGORITHM == 3 || TRACK_ALGORITHM == 16
@@ -734,6 +745,9 @@ static void track_control(const track_result_t *line)
             if (heading < 0) heading = -heading;
             if (heading >= 3) max_step = 3;
             if (heading >= 6) max_step = 6;
+#if TRACK_ALGORITHM == 16
+            if (bend_support) max_step=8;
+#endif
         }
         /* Unwind the existing turn promptly. For a large reversal, reach
          * neutral before applying the normal slew limit on the other side. */
