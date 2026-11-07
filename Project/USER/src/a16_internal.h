@@ -21,6 +21,7 @@ void a16_plan_island(track_mode1_result_t *road);
 #if TRACK_ALGORITHM == 16
 extern volatile uint32_t track_motor_duty;
 extern unsigned a16_departure_mark_ms;
+const uint8_t (*a16_reference_view(const uint8_t raw[][TRACK_MODE1_WIDTH]))[TRACK_MODE1_WIDTH];
 void a16_obstacle_reset(void);
 int a16_plan_obstacle(track_mode1_result_t *road, const uint8_t image[][TRACK_MODE1_WIDTH]);
 void a16_update_lap(const uint8_t image[][TRACK_MODE1_WIDTH], unsigned low, unsigned high);

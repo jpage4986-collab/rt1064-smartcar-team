@@ -27,6 +27,8 @@ void track_mode16_set_frame_dt(uint32_t dt_ms)
 
 int track_mode16_corner_active;
 #if TRACK_ALGORITHM == 16
+static unsigned road_recovery_frames;
+static int lost_ordinary_road;
 int track_mode16_obstacle_side;
 int track_mode16_inside_px;
 int track_mode16_straight;
@@ -139,6 +141,8 @@ static int find_connected_run(int y, int previous_left, int previous_right,
 void track_mode16_reset(void)
 {
 #if TRACK_ALGORITHM == 16
+    road_recovery_frames = 0;
+    lost_ordinary_road = 0;
     a16_obstacle_reset();
     track_mode16_straight = track_mode16_inside_px = 0;
 #endif
@@ -346,6 +350,8 @@ track_mode1_result_t track_mode16_process(
         result.global_threshold=(uint8_t)((low+high)*4+4);
 #endif
 #if TRACK_ALGORITHM == 16
+    /* Measure exposure in native pixels before masking unobservable ground. */
+    image = a16_reference_view(image);
     a16_update_lap(image,low,high);
 #endif
     make_binary(image, result.global_threshold);
@@ -358,7 +364,10 @@ track_mode1_result_t track_mode16_process(
         if (bin * 8U > result.global_threshold) brighter += hist[bin];
     }
     if (darker < 4U || brighter < 4U) {
+        int was_road = track_mode16_phase == A16_ROAD ||
+                       (track_mode16_phase == A16_WAIT && lost_ordinary_road);
         track_mode16_reset();
+        lost_ordinary_road = was_road;
         track_mode16_phase = A16_WAIT;
         track_mode16_target_row = A16_ROAD_TARGET_ROW;
         return result;
@@ -423,6 +432,18 @@ track_mode1_result_t track_mode16_process(
         }
     }
 #if TRACK_ALGORITHM == 16
+    if (lost_ordinary_road && track_mode16_phase == A16_WAIT) {
+        /* Recover a washed-out ordinary bend as soon as two fresh frames
+         * contain a connected, measured near lane. Ring WAIT stays separate. */
+        if (result.valid_rows >= TRACK_DRIVE_MIN_VALID_ROWS &&
+            track_mode16_path_confidence[A16_ROAD_TARGET_ROW] >= TRACK_DRIVE_MIN_TARGET_CONFIDENCE &&
+            track_mode16_path_confidence[A16_ROAD_ANCHOR_ROW] >= TRACK_DRIVE_MIN_ANCHOR_CONFIDENCE) {
+            if (++road_recovery_frames >= 2U) track_mode16_phase = A16_ROAD;
+        } else {
+            road_recovery_frames = 0;
+        }
+    }
+    if (track_mode16_phase != A16_WAIT) lost_ordinary_road = 0;
     track_mode16_straight = track_mode16_inside_px = 0;
     if (a16_plan_obstacle(&result,image)) return result;
 #endif

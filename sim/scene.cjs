@@ -1,7 +1,9 @@
 // Grayscale camera and bicycle model. All dimensions except map pixels use metres.
 const readline = require('node:readline');
 const W = 188, H = 120, MW = 590, MH = 341, ppm = 82, dt = 1/30;
-const cp = Math.cos(Math.PI/12), sp = Math.sin(Math.PI/12);
+const height = Number(process.argv[2]);
+const pitch = Number(process.argv[3])*Math.PI/180;
+const cp = Math.cos(pitch), sp = Math.sin(pitch);
 const fov = 75*Math.PI/180, th = Math.tan(fov/2), tv = Math.tan(Math.atan(th*H/W));
 const forward = new Float64Array(W*H), lateral = new Float64Array(W*H);
 for (let x=0;x<W;x++) {
@@ -9,8 +11,8 @@ for (let x=0;x<W;x++) {
     for(let y=0;y<H;y++){
         const b=Math.atan((1-(y+.5)/H*2)*tv), cb=Math.cos(b), sb=Math.sin(b);
         const down=cb*ca*sp-sb*cp, k=y*W+x;
-        forward[k]=down>.006?(cb*ca*cp+sb*sp)/down*.23:NaN;
-        lateral[k]=cb*sa/down*.23;
+        forward[k]=down>.006?(cb*ca*cp+sb*sp)/down*height:NaN;
+        lateral[k]=cb*sa/down*height;
     }
 }
 let road,edge,x,y,heading,speed,time,distance;
@@ -31,12 +33,12 @@ function capture(){
             const sy=(gy-20)/ppm+.15;
             mark=cov>.7&&Math.abs(gx-228)<.145*ppm&&sy>=0&&sy<.30&&Math.floor(sy/(.30/13))%2===0;
             const vx=gx-x,vy=gy-y;
-            let lo=1-.05/.23,hi=1;
+            let lo=1-.05/height,hi=1;
             if(Math.abs(vx)<1e-8){if(x<192||x>211.68)hi=-1;}
             else{const a=(192-x)/vx,b=(211.68-x)/vx;lo=Math.max(lo,Math.min(a,b));hi=Math.min(hi,Math.max(a,b));}
             if(Math.abs(vy)<1e-8){if(y<310||y>321.5)hi=-1;}
             else{const a=(310-y)/vy,b=(321.5-y)/vy;lo=Math.max(lo,Math.min(a,b));hi=Math.min(hi,Math.max(a,b));}
-            if(lo<=hi && lo>=0)brick=85+(Math.abs(lo-(1-.05/.23))<1e-6?8:0);
+            if(lo<=hi && lo>=0)brick=85+(Math.abs(lo-(1-.05/height))<1e-6?8:0);
         }
         const z=Math.sin(i*127.1+j*311.7+frameNo*74.7)*43758.5453;
         const texture=4*Math.sin((x+i*1.7+j*.4)*.31+(y+j*1.6-i*.25)*.19)+(2*(z-Math.floor(z))-1)*10;

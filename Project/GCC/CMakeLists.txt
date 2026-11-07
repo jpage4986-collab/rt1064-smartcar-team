@@ -89,6 +89,7 @@ set_source_files_properties(
     "${ProjDirPath}/../USER/src/track_mode16.c"
     "${ProjDirPath}/../USER/src/a16_roundabout.c"
     "${ProjDirPath}/../USER/src/a16_obstacle.c"
+    "${ProjDirPath}/../USER/src/a16_camera.c"
     "${ProjDirPath}/../USER/src/a16_finish.c"
 
     PROPERTIES COMPILE_OPTIONS "-O2")

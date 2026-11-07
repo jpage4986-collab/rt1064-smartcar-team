@@ -14,6 +14,7 @@ extern int track_mode16_corner_active;
 #if TRACK_ALGORITHM == 16
 extern int track_mode16_obstacle_side;
 extern int track_mode16_inside_px;
+extern uint32_t a16_frame_ms;
 extern int track_mode16_straight;
 enum { A16_LAP_DEPART, A16_LAP_ARMED, A16_LAP_FINISHED };
 extern unsigned track16_lap;

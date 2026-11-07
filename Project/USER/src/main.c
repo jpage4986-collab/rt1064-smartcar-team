@@ -213,6 +213,9 @@ static uint8_t exit_straight_frames_needed;
 volatile uint32_t track_target_x = TRACK_STEER_REFERENCE_X;
 volatile uint32_t track_target_confidence = 0U;
 volatile uint32_t track_servo_angle = TRACK_SERVO_CENTER_DEG;
+#if TRACK_ALGORITHM == 16
+static unsigned bend_hold_ms;
+#endif
 volatile uint32_t track_valid_rows = 0U;
 volatile uint32_t track_mode_number = TRACK_ALGORITHM;
 volatile uint32_t track_heartbeat = 0U;
@@ -465,6 +468,7 @@ static void wireless_poll(void)
             pwm_duty(CAMERA_TEST_MOTOR2_PWM, 0U);
             track_motor_duty = 0U;
 #if TRACK_ALGORITHM == 16
+            bend_hold_ms = 0;
             exit_straight_frames_needed = 0U;
 #endif
             wireless_reply("OK STOP\r\n");
@@ -477,6 +481,7 @@ static void wireless_poll(void)
             pwm_duty(CAMERA_TEST_MOTOR2_PWM, 0U);
             track_motor_duty = 0U;
 #if TRACK_ALGORITHM == 16
+            bend_hold_ms = 0;
             exit_straight_frames_needed = 0U;
 #endif
 #if TRACK_ALGORITHM == 8 || TRACK_ALGORITHM == 9 || TRACK_ALGORITHM == 10 || TRACK_ALGORITHM == 11 || TRACK_ALGORITHM == 12 || (TRACK_ALGORITHM == 13 || TRACK_ALGORITHM == 14 || TRACK_ALGORITHM == 15)
@@ -521,7 +526,7 @@ static void track_outputs_init(void)
     track_speed_pid_reset();
 }
 
-static void track_stop(void)
+static void track_stop_outputs(int center_servo)
 {
     pwm_duty(CAMERA_TEST_MOTOR1_PWM, 0U);
     pwm_duty(CAMERA_TEST_MOTOR2_PWM, 0U);
@@ -535,11 +540,21 @@ static void track_stop(void)
     if (track17_uses_ring())
 #endif
     {
-        track_servo_angle = TRACK_SERVO_CENTER_DEG;
-        pwm_duty(TRACK_SERVO_PWM, TRACK_SERVO_DUTY(TRACK_SERVO_CENTER_DEG));
+        if (center_servo) {
+            track_servo_angle = TRACK_SERVO_CENTER_DEG;
+            pwm_duty(TRACK_SERVO_PWM, TRACK_SERVO_DUTY(TRACK_SERVO_CENTER_DEG));
+        }
     }
 #endif
     track_speed_pid_reset();
+}
+
+static void track_stop(void)
+{
+#if TRACK_ALGORITHM == 16
+    bend_hold_ms = 0;
+#endif
+    track_stop_outputs(1);
 }
 
 #if TRACK_ALGORITHM == 16
@@ -722,6 +737,14 @@ static void track_control(const track_result_t *line)
         track_target_x = (uint32_t)line->target_x;
         track_target_confidence = line->target_confidence;
         track_valid_rows = line->valid_rows;
+#if TRACK_ALGORITHM == 16
+        if (track_arm_request == 1U && bend_hold_ms > a16_frame_ms &&
+            (track_mode16_phase == A16_ROAD || track_mode16_phase == A16_WAIT)) {
+            bend_hold_ms -= a16_frame_ms;
+            track_stop_outputs(0);
+            return;
+        }
+#endif
         track_stop();
         return;
     }
@@ -794,6 +817,11 @@ static void track_control(const track_result_t *line)
         return;
     }
 
+#if TRACK_ALGORITHM == 16
+    int deviation = angle - (int32_t)TRACK_SERVO_CENTER_DEG;
+    bend_hold_ms = track_mode16_phase == A16_ROAD && !track_mode16_obstacle_side &&
+                   (deviation <= -6 || deviation >= 6) ? 200U : 0U;
+#endif
     /* Open-loop PWM: one shared ramped command, then an independent per-wheel
      * scale/trim. The configurable global cap may use the full PWM range. */
     /* Linear slowdown, normalized independently to each steering endpoint.
@@ -943,8 +971,12 @@ void main(void)
         wireless_poll();
         if (!mt9v03x_csi_finish_flag)
         {
-            if ((uint32_t)(DWT->CYCCNT - last_frame_cycle) >
-                (SystemCoreClock / 1000U) * TRACK_CAMERA_LOST_TIMEOUT_MS)
+            uint32_t timeout_ms = TRACK_CAMERA_LOST_TIMEOUT_MS;
+#if TRACK_ALGORITHM == 16
+            if (bend_hold_ms && bend_hold_ms < timeout_ms) timeout_ms = bend_hold_ms;
+#endif
+            if ((uint32_t)(DWT->CYCCNT - last_frame_cycle) >=
+                (SystemCoreClock / 1000U) * timeout_ms)
             {
                 track_stop();
 #if TRACK_ALGORITHM == 8 || TRACK_ALGORITHM == 9 || TRACK_ALGORITHM == 10 || TRACK_ALGORITHM == 11 || TRACK_ALGORITHM == 12 || (TRACK_ALGORITHM == 13 || TRACK_ALGORITHM == 14 || TRACK_ALGORITHM == 15)

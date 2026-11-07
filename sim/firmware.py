@@ -35,10 +35,10 @@ class Firmware:
     def value(self,name):
         return struct.unpack('<i',self.cpu.mem_read(self.symbol[name],4))[0]
 
-    def step(self,frame):
+    def step(self,frame,dt_ms=100):
         if len(frame)!=188*120:raise ValueError('expected a 188 x 120 grayscale frame')
         self.cpu.mem_write(0x81000000,frame)
-        self.call('track_mode16_set_frame_dt',100)
+        self.call('track_mode16_set_frame_dt',dt_ms)
         self.call('track_mode16_process',0x81006000,0x81000000)
         self.call('track_control',0x81006000)
         return dict(lap=self.value('track16_lap'),phase=self.value('track_mode16_phase'),
