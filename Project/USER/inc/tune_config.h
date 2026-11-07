@@ -14,6 +14,11 @@
 #if TRACK_A16_LOOKAHEAD_ROW < 73 || TRACK_A16_LOOKAHEAD_ROW >= TRACK_A16_NEAR_ROW || TRACK_A16_NEAR_ROW > 118 || TRACK_A16_NEAR_GAIN_PERCENT < 0 || TRACK_A16_NEAR_GAIN_PERCENT > 100
 #error "Invalid A16 road sampling rows or near correction"
 #endif
+/* Extra gray contrast around the midpoint for dim or highlight-clipped scenes. */
+#define TRACK_A16_CONTRAST_GAIN_PERCENT 110U
+#if TRACK_A16_CONTRAST_GAIN_PERCENT < 100 || TRACK_A16_CONTRAST_GAIN_PERCENT > 200
+#error "A16 contrast gain must be 100..200 percent"
+#endif
 #define TRACK_A16_SEARCH_PWM_PERCENT 17U
 #define TRACK_A16_SEARCH_TIME_MS 2000U
 #define TRACK_A16_CAMERA_HEIGHT_M 0.315f

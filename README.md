@@ -48,6 +48,10 @@ python sim/replay.py --direction both --output reports/replay
 
 从 main 建分支，提交改动时附双向回放结果。用标签 `vehicle-5ad9d3f3` 查看上一版车载固件对应源码，用 `a16-before-module-split` 对照功能修改与文件拆分，用 `a16-b6072527` 找回 23 cm 机位的烧录版本。
 
+## 相机二值化
+
+`Project/USER/inc/tune_config.h` 中的 `TRACK_A16_CONTRAST_GAIN_PERCENT` 默认为 110。算法 16 以原始灰度分位数估计暗、亮两类，在亮部接近饱和或亮暗间隔约 32–72 级时调整二值化分界。LCD 显示实际用于循迹的黑白分割。画面中已饱和的像素仍然缺少灰度细节。
+
 ## 普通循迹的远近参数
 
 在 `Project/USER/inc/tune_config.h` 调整。参考图从上往下共 120 行，行号越小看得越远。当前主目标用第 94 行（`TRACK_A16_LOOKAHEAD_ROW`），近处锚点用第 117 行（`TRACK_A16_NEAR_ROW`）。两处测量可信、近处偏差与控制误差同向时，将近处横向偏差的 8% 加入转向误差（`TRACK_A16_NEAR_GAIN_PERCENT`）。按当前投影模型，中列这两行对应相机正下方往前约 39 cm 和 27 cm。

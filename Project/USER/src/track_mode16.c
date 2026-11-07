@@ -345,6 +345,17 @@ track_mode1_result_t track_mode16_process(
 #if TRACK_ALGORITHM == 16
     if (high >= low + 10U && high * 8U < result.global_threshold + 24U)
         result.global_threshold = (uint8_t)((low + 3U * high) * 2U);
+    /* A threshold in stretched gray is equivalent to its inverse in native
+     * gray. Keep original pixels for the brick and finish-mark detectors. */
+    if (high >= low + 4U && (high < low + 10U || high >= 30U)) {
+        /* In a narrow histogram each 8-level bin matters. Use its centre
+         * for the dim-scene estimate; bright-scene cuts keep the old scale. */
+        unsigned bin_center = high < low + 10U ? 4U : 0U;
+        unsigned midpoint = (low + high) * 4U + bin_center;
+        unsigned white_cut = (low + 3U * high) * 2U + bin_center;
+        result.global_threshold = (uint8_t)(midpoint +
+            (white_cut - midpoint) * 100U / TRACK_A16_CONTRAST_GAIN_PERCENT);
+    }
 #else
     if (high*8+7 < result.global_threshold && high>=low+10)
         result.global_threshold=(uint8_t)((low+high)*4+4);
