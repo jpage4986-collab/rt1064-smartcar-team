@@ -4,6 +4,20 @@
 
 算法 18 在普通道路和环岛准备阶段使用算法 3 的原始灰度循迹与舵角计算。进环、绕行、合并和避障采用算法 16。调参面板可选 16 或 18，算法 18 的普通路前视由 CONT_TARGET_ROW 设置，行号越大看得越近。
 
+## 首要回退基准
+
+算法 18 的固定标签为 `a18-primary-18963d80`，对应源代码提交 `54b8c30`。普通路使用算法 3，环岛使用算法 16。应用固件 CRC32 为 `18963D80`。原次烧录的两个 ELF 和主板读数保存在 `baselines/a18-primary-18963d80/`。后续调参另存版本。
+
+要在独立目录恢复该版本，从仓库根目录执行以下 PowerShell 命令。最后一行会通过下载器写入封存的固件。
+
+```powershell
+git fetch origin --tags
+git worktree add --detach ../rt1064-a18-primary a18-primary-18963d80
+Set-Location ../rt1064-a18-primary
+Expand-Archive ./baselines/a18-primary-18963d80/firmware.zip -DestinationPath .
+pwsh -File ./flash.ps1
+```
+
 ## 从克隆到构建
 
 Windows 下使用 PowerShell 7、Arm GNU Toolchain 15.2、CMake 和 Ninja。将命令加入 PATH 后，在仓库根目录运行：

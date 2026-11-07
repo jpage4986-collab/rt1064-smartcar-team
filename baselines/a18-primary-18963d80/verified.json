@@ -1,0 +1,39 @@
+{
+  "first": {
+    "track_heartbeat": 76938,
+    "track_arm_request": 1,
+    "track_motor_duty": 2500,
+    "track_mode_number": 18,
+    "camera_test_frames": 2,
+    "camera_test_stage": 3,
+    "track_servo_angle": 87,
+    "track_mode16_phase": 0,
+    "track_mode16_island_side": 0,
+    "track_mode16_island_bottom": 4294967295,
+    "track_mode16_target_row": 90,
+    "track_target_x": 94,
+    "track_target_confidence": 69,
+    "track_valid_rows": 58
+  },
+  "loader_sha256": "0ed306901e9c8cce6c65eff7557f01ae3653acd612cdc6cc02d554832ea27c08",
+  "application_crc32": "18963d80",
+  "application_sha256": "ef618f8ce3ff7296017c1d6e0415b5150d050d47f30eeef5ac3db59e70bc28b7",
+  "source_commit": "54b8c30f37cd1aee9dcb6c84b13d281faff53148",
+  "second": {
+    "track_heartbeat": 76943,
+    "track_arm_request": 1,
+    "track_motor_duty": 12500,
+    "track_mode_number": 18,
+    "camera_test_frames": 7,
+    "camera_test_stage": 3,
+    "track_servo_angle": 87,
+    "track_mode16_phase": 0,
+    "track_mode16_island_side": 0,
+    "track_mode16_island_bottom": 4294967295,
+    "track_mode16_target_row": 94,
+    "track_target_x": 94,
+    "track_target_confidence": 69,
+    "track_valid_rows": 58
+  },
+  "tag": "a18-primary-18963d80"
+}
