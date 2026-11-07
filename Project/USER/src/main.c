@@ -802,7 +802,8 @@ static void track_control(const track_result_t *line)
             if (heading >= 3) max_step = 3;
             if (heading >= 6) max_step = 6;
 #if TRACK_ALGORITHM == 16
-            if (bend_support) max_step=8;
+            if (heading >= 6) max_step = TRACK_A16_BEND_STEP_DEG;
+            if (bend_support) max_step = TRACK_A16_SUSTAINED_BEND_STEP_DEG;
 #endif
         }
         /* Unwind the existing turn promptly. For a large reversal, reach
@@ -821,7 +822,7 @@ static void track_control(const track_result_t *line)
             max_step = track_mode16_phase == A16_ROAD && held >= 6 &&
                        !track_mode16_obstacle_side &&
                        line->anchor_confidence >= TRACK_DRIVE_MIN_ANCHOR_CONFIDENCE &&
-                       line->target_confidence >= TRACK_DRIVE_MIN_TARGET_CONFIDENCE ? 10 : 6;
+                       line->target_confidence >= TRACK_DRIVE_MIN_TARGET_CONFIDENCE ? TRACK_A16_ROAD_RETURN_STEP_DEG : 6;
 #endif
         }
 #if TRACK_ALGORITHM == 16

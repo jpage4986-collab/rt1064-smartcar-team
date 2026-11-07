@@ -14,6 +14,12 @@ cd rt1064-smartcar-team
 
 应用位于 `Project/GCC/wireless-app/tutorial.elf`，引导程序位于 `Project/GCC/wireless-loader/tutorial.elf`。
 
+## 浏览器调参
+
+在工程根目录运行 `python tune.py` 打开本地面板。可调相机姿态、灰度分割、前视与近视、舵机与电机、找路和速度 PID 等参数。导入 188 × 120 的车载灰度帧（多帧可连续拼接）或等比图片后可预览分割和采样行；本机已有的历史录像从 `reports/tuning/camera.gray` 读取。
+
+“保存待烧录参数”写入 `reports/tuning/pending.json`。“应用并烧录”会保存页面数值、更新固件配置、执行构建和有线烧录，结果以 Flash 回读和启动检查为准。日志位于 `reports/tuning/last-flash.log`。烧录前架空驱动轮，备好主板供电和下载器。
+
 ## 回放与烧录
 
 闭环回放需要 Python、Node.js 和下列 Python 依赖。默认运行顺、逆两个方向，输出每帧位置、状态、舵角和电机占空比，以及每个方向的汇总。仅仿真器和评分器读取赛道图，固件逐帧接收 188 × 120 灰度图。

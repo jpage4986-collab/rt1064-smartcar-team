@@ -15,6 +15,7 @@
 #error "Invalid A16 road sampling rows or near correction"
 #endif
 /* Extra gray contrast around the midpoint for dim or highlight-clipped scenes. */
+#define TRACK_MODE16_GRAY_THRESHOLD 232U
 #define TRACK_A16_CONTRAST_GAIN_PERCENT 110U
 #if TRACK_A16_CONTRAST_GAIN_PERCENT < 100 || TRACK_A16_CONTRAST_GAIN_PERCENT > 200
 #error "A16 contrast gain must be 100..200 percent"
@@ -33,6 +34,9 @@
 #define TRACK_STEER_REFERENCE_X 88u
 #define TRACK_A3_MAX_STEER_DELTA_DEG 12u
 #define TRACK_A16_MAX_STEER_DELTA_DEG 15u
+#define TRACK_A16_BEND_STEP_DEG 6
+#define TRACK_A16_SUSTAINED_BEND_STEP_DEG 8
+#define TRACK_A16_ROAD_RETURN_STEP_DEG 10
 
 /* Wheel drive: open-loop PWM; the requested output uses the full 0-100% hardware range. */
 #define TRACK_MOTOR_PWM_HZ 16999u
