@@ -23,12 +23,14 @@ python -m pip install -r sim/requirements.txt
 python sim/replay.py --direction both --output reports/replay
 ```
 
-主板供电、CMSIS-DAP 接好后，在配有 RT1064Tools 的 Windows 电脑运行以下命令。固件启动后可能立即输出电机 PWM，台架烧录时请架空驱动轮。
+主板供电、CMSIS-DAP 接好后，在 Windows x64 上使用 Python 3.13 和 PowerShell 7。第一次先运行安装脚本，它在当前用户目录创建独立环境并安装烧录依赖。固件启动后可能立即输出电机 PWM，台架烧录时请架空驱动轮。
 
 ```powershell
-python -m pip install pyocd intelhex pyelftools
+./tools/RT1064Tools/install.ps1
 ./flash.ps1
 ```
+
+[离线安装包（Windows x64、Python 3.13）](https://github.com/jpage4986-collab/rt1064-smartcar-team/releases/download/rt1064tools-0.45.1/RT1064Tools-win64-py313-offline.zip) · [下载器接线和供电说明](tools/RT1064Tools/README.md)
 
 下载脚本先备份将覆盖的扇区，然后用 HEX 写入 BOOT2 布局，校验引导区、应用区、备份应用区和清单，最后读取算法编号、心跳和摄像头帧计数。`reports/flash/latest-wired-update.json` 保存本机烧录凭据。使用自定义 RT1064 下载脚本路径时可传入 `-FlashScript`。
 
